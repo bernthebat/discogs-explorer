@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Discogs — Want Ratio Explorer</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e0b08;
+    --surface: #161209;
+    --border: #2a2218;
+    --gold: #c9a84c;
+    --gold-dim: #7a6330;
+    --text: #e8dcc8;
+    --text-dim: #7a7060;
+    --red: #cc4433;
+    --green: #4a8c5c;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    background-size: 200px 200px;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.5;
+  }
+
+  header {
+    position: relative;
+    z-index: 1;
+    padding: 48px 40px 32px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .header-top {
+    display: flex;
+    align-items: baseline;
+    gap: 20px;
+    margin-bottom: 6px;
+  }
+
+  h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--gold);
+    letter-spacing: -0.5px;
+  }
+
+  .subtitle {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+
+  main {
+    position: relative;
+    z-index: 1;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 40px 40px 80px;
+  }
+
+  .setup-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 28px 32px;
+    margin-bottom: 32px;
+  }
+
+  .setup-card h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 18px;
+    color: var(--gold);
+    margin-bottom: 16px;
+  }
+
+  .token-row {
+    display: flex;
+    gap: 12px;
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  input[type="text"] {
+    flex: 1;
+    min-width: 220px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  input[type="text"]:focus { border-color: var(--gold-dim); }
+  input[type="text"]::placeholder { color: var(--text-dim); }
+
+  .filters {
+    display: flex;
+    gap: 12px;
+    margin-top: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .filter-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-dim);
+    font-size: 11px;
+  }
+
+  .filter-group label {
+    white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  input[type="number"] {
+    width: 70px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    padding: 6px 10px;
+    outline: none;
+  }
+
+  button {
+    background: var(--gold);
+    color: var(--bg);
+    border: none;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    padding: 10px 22px;
+    cursor: pointer;
+    transition: background 0.2s, opacity 0.2s;
+    white-space: nowrap;
+  }
+
+  button:hover:not(:disabled) { background: #e0bc6a; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  button.secondary {
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+  }
+  button.secondary:hover:not(:disabled) {
+    background: var(--surface);
+    color: var(--text);
+  }
+
+  #progress {
+    display: none;
+    margin: 24px 0;
+    padding: 20px 24px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+  }
+
+  .progress-label {
+    color: var(--text-dim);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 10px;
+  }
+
+  .progress-bar-track {
+    height: 2px;
+    background: var(--border);
+    margin-bottom: 10px;
+  }
+
+  .progress-bar-fill {
+    height: 2px;
+    background: var(--gold);
+    width: 0%;
+    transition: width 0.3s;
+  }
+
+  .progress-status { color: var(--text-dim); font-size: 12px; }
+
+  #control-btns { display: none; gap: 8px; margin-top: 12px; }
+
+  #results-header {
+    display: none;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .results-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .results-count {
+    font-family: 'Playfair Display', serif;
+    font-size: 20px;
+    color: var(--text);
+  }
+
+  .results-count span { color: var(--gold); }
+
+  .col-headers {
+    display: grid;
+    grid-template-columns: 48px 1fr 80px 60px 60px 90px;
+    gap: 0 16px;
+    padding: 8px 16px;
+    color: var(--text-dim);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-top: 12px;
+  }
+
+  #results-list { display: flex; flex-direction: column; gap: 2px; }
+
+  .result-row {
+    display: grid;
+    grid-template-columns: 48px 1fr 80px 60px 60px 90px;
+    gap: 0 16px;
+    align-items: center;
+    padding: 12px 16px;
+    background: var(--surface);
+    border: 1px solid transparent;
+    cursor: pointer;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.15s, background 0.15s;
+    animation: rowIn 0.3s ease forwards;
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  .result-row:hover {
+    border-color: var(--gold-dim);
+    background: #1c1710;
+  }
+
+  @keyframes rowIn {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .rank {
+    font-family: 'Playfair Display', serif;
+    font-size: 18px;
+    color: var(--text-dim);
+    font-style: italic;
+  }
+
+  .rank.top { color: var(--gold); }
+
+  .title-block .title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 3px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .title-block .meta { font-size: 11px; color: var(--text-dim); }
+
+  .stat { text-align: right; font-size: 13px; }
+  .stat.want { color: #7aab8c; }
+  .stat.have { color: var(--text-dim); }
+
+  .ratio-badge {
+    text-align: right;
+    font-family: 'Playfair Display', serif;
+    font-size: 17px;
+    font-style: italic;
+  }
+
+  .ratio-badge.high { color: var(--gold); }
+  .ratio-badge.mid  { color: #9a8c6a; }
+  .ratio-badge.low  { color: var(--text-dim); }
+
+  .ratio-bar { height: 2px; background: var(--border); margin-top: 4px; }
+  .ratio-bar-fill { height: 2px; background: var(--gold); }
+
+  #error-msg {
+    display: none;
+    padding: 14px 18px;
+    background: rgba(204,68,51,0.1);
+    border: 1px solid var(--red);
+    color: var(--red);
+    font-size: 12px;
+    margin-bottom: 24px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-top">
+    <h1 id="header-title">Discogs Explorer</h1>
+  </div>
+  <div class="subtitle">Want / Have Ratio by Country</div>
+</header>
+
+<main>
+
+  <div class="setup-card">
+    <h2>Search</h2>
+    <div class="token-row">
+      <input type="text" id="country-input" placeholder="Enter a country (e.g. Lebanon, Japan, Brazil…)" autocomplete="off" spellcheck="false" list="country-suggestions">
+      <datalist id="country-suggestions">
+        <option value="Lebanon"><option value="Egypt"><option value="France"><option value="Japan">
+        <option value="Germany"><option value="UK"><option value="USA"><option value="Brazil">
+        <option value="Turkey"><option value="Greece"><option value="Morocco"><option value="Iran">
+        <option value="India"><option value="Nigeria"><option value="Argentina"><option value="Mexico">
+        <option value="South Korea"><option value="Italy"><option value="Spain"><option value="Jamaica">
+        <option value="Colombia"><option value="Ethiopia"><option value="Ghana"><option value="Syria">
+        <option value="Iraq"><option value="Israel"><option value="Kuwait"><option value="Saudi Arabia">
+        <option value="Algeria"><option value="Tunisia"><option value="Sudan"><option value="Kenya">
+        <option value="Senegal"><option value="Cameroon"><option value="Indonesia"><option value="Pakistan">
+        <option value="Bangladesh"><option value="Sri Lanka"><option value="Thailand"><option value="Vietnam">
+        <option value="Philippines"><option value="Portugal"><option value="Netherlands"><option value="Belgium">
+        <option value="Sweden"><option value="Norway"><option value="Denmark"><option value="Finland">
+        <option value="Poland"><option value="Czechoslovakia"><option value="Yugoslavia"><option value="Hungary">
+        <option value="Romania"><option value="Bulgaria"><option value="Russia"><option value="Ukraine">
+        <option value="Australia"><option value="New Zealand"><option value="Canada"><option value="Cuba">
+        <option value="Peru"><option value="Chile"><option value="Venezuela"><option value="Trinidad and Tobago">
+      </datalist>
+      <button id="fetch-btn" onclick="startFetch()">Explore</button>
+    </div>
+
+    <div class="filters">
+      <div class="filter-group">
+        <label>Min. Wants</label>
+        <input type="number" id="min-wants" value="3" min="0">
+      </div>
+      <div class="filter-group">
+        <label>Min. Have</label>
+        <input type="number" id="min-have" value="1" min="1">
+      </div>
+      <div class="filter-group">
+        <label>Show Top</label>
+        <input type="number" id="top-n" value="100" min="10" max="500">
+      </div>
+    </div>
+  </div>
+
+  <div id="error-msg"></div>
+
+  <div id="progress">
+    <div class="progress-label">Fetching releases from Discogs…</div>
+    <div class="progress-bar-track"><div class="progress-bar-fill" id="progress-fill"></div></div>
+    <div class="progress-status" id="progress-status">Starting…</div>
+    <div id="control-btns" style="display:flex;">
+      <button class="secondary" onclick="stopFetch()">Stop &amp; Show Results</button>
+    </div>
+  </div>
+
+  <div id="results-header">
+    <div class="results-meta">
+      <div class="results-count">Showing <span id="result-count">0</span> releases, sorted by want/have ratio</div>
+    </div>
+    <div class="col-headers">
+      <div>#</div>
+      <div>Release</div>
+      <div>Format</div>
+      <div>Wants</div>
+      <div>Haves</div>
+      <div style="text-align:right">Ratio</div>
+    </div>
+  </div>
+
+  <div id="results-list"></div>
+
+</main>
+
+<script>
+let allResults = [];
+let stopRequested = false;
+
+function showError(msg) {
+  const el = document.getElementById('error-msg');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function hideError() {
+  document.getElementById('error-msg').style.display = 'none';
+}
+
+function setProgress(pct, status) {
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-status').textContent = status;
+}
+
+function stopFetch() {
+  stopRequested = true;
+  document.querySelector('#control-btns button').disabled = true;
+  document.querySelector('#control-btns button').textContent = 'Stopping…';
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function startFetch() {
+  const country = document.getElementById('country-input').value.trim();
+  if (!country) { showError('Please enter a country name.'); return; }
+
+  hideError();
+  stopRequested = false;
+  allResults = [];
+
+  const minWants = parseInt(document.getElementById('min-wants').value) || 0;
+  const minHave  = parseInt(document.getElementById('min-have').value)  || 1;
+  const topN     = parseInt(document.getElementById('top-n').value)     || 100;
+
+  document.getElementById('header-title').textContent = country + ' — Discogs Explorer';
+  document.getElementById('fetch-btn').disabled = true;
+  document.getElementById('progress').style.display = 'block';
+  document.getElementById('results-header').style.display = 'none';
+  document.getElementById('results-list').innerHTML = '';
+  document.getElementById('control-btns').style.display = 'flex';
+
+  setProgress(0, 'Fetching page 1…');
+
+  let page = 1;
+  let totalPages = null;
+  let fetched = 0;
+
+  while (true) {
+    if (stopRequested) break;
+
+    const url = `/api/search?country=${encodeURIComponent(country)}&page=${page}`;
+
+    let data;
+    try {
+      const resp = await fetch(url);
+
+      if (resp.status === 429) {
+        setProgress(totalPages ? (page/totalPages*100) : 0, `Rate limited — waiting 10s… (page ${page})`);
+        await sleep(10000);
+        continue;
+      }
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        showError(err.error || `Server error: ${resp.status}`);
+        break;
+      }
+
+      data = await resp.json();
+    } catch(e) {
+      showError('Network error — could not reach the server. Please try again.');
+      break;
+    }
+
+    if (totalPages === null) {
+      totalPages = data.pagination?.pages || 1;
+    }
+
+    for (const item of data.results || []) {
+      const have = item?.community?.have ?? 0;
+      const want = item?.community?.want ?? 0;
+      if (have < minHave || want < minWants) continue;
+      allResults.push({
+        title:  item.title  || 'Unknown',
+        year:   item.year   || '',
+        format: (item.format || []).join(', '),
+        label:  (item.label  || []).join(', '),
+        want, have,
+        ratio: want / have,
+        url: item.uri ? 'https://www.discogs.com' + item.uri : '#',
+      });
+    }
+
+    fetched += (data.results || []).length;
+    const pct = totalPages ? Math.round(page / totalPages * 100) : 0;
+    setProgress(pct, `Page ${page} of ${totalPages} — ${fetched} releases scanned, ${allResults.length} qualifying`);
+
+    if (page >= totalPages) break;
+    page++;
+    await sleep(1100);
+  }
+
+  document.getElementById('progress').style.display = 'none';
+  document.getElementById('fetch-btn').disabled = false;
+  renderResults(topN);
+}
+
+function renderResults(topN) {
+  const sorted = [...allResults].sort((a, b) => b.ratio - a.ratio).slice(0, topN);
+  const maxRatio = sorted[0]?.ratio || 1;
+
+  document.getElementById('result-count').textContent = sorted.length;
+  document.getElementById('results-header').style.display = 'block';
+
+  const list = document.getElementById('results-list');
+  list.innerHTML = '';
+
+  if (sorted.length === 0) {
+    list.innerHTML = '<div style="padding:32px;color:var(--text-dim);text-align:center">No releases matched your filters. Try lowering Min. Wants or Min. Have.</div>';
+    return;
+  }
+
+  sorted.forEach((item, i) => {
+    const ratioClass = item.ratio >= 2 ? 'high' : item.ratio >= 1 ? 'mid' : 'low';
+    const rankClass  = i < 3 ? 'top' : '';
+    const barPct     = Math.round((item.ratio / maxRatio) * 100);
+    const delay      = Math.min(i * 18, 400);
+
+    const a = document.createElement('a');
+    a.className = 'result-row';
+    a.href = item.url;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.style.animationDelay = delay + 'ms';
+
+    a.innerHTML = `
+      <div class="rank ${rankClass}">${i + 1}</div>
+      <div class="title-block">
+        <div class="title">${escHtml(item.title)}</div>
+        <div class="meta">${escHtml([item.year, item.label].filter(Boolean).join(' · '))}</div>
+      </div>
+      <div class="stat" style="color:var(--text-dim);font-size:11px;">${escHtml(item.format)}</div>
+      <div class="stat want">${item.want}</div>
+      <div class="stat have">${item.have}</div>
+      <div>
+        <div class="ratio-badge ${ratioClass}" style="text-align:right">${item.ratio.toFixed(2)}×</div>
+        <div class="ratio-bar"><div class="ratio-bar-fill" style="width:${barPct}%"></div></div>
+      </div>
+    `;
+    list.appendChild(a);
+  });
+}
+
+function escHtml(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+document.getElementById('country-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') startFetch();
+});
+</script>
+</body>
+</html>
