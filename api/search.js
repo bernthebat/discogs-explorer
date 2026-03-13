@@ -5,7 +5,7 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') { res.status(200).end(); return; }
 
-  const { country, page } = req.query;
+  const { country, page, genre, style } = req.query;
 
   if (!country) {
     return res.status(400).json({ error: 'Missing country parameter' });
@@ -18,7 +18,9 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Discogs credentials not configured on server' });
   }
 
-  const url = `https://api.discogs.com/database/search?country=${encodeURIComponent(country)}&type=release&per_page=100&page=${page || 1}&key=${key}&secret=${secret}`;
+  let url = `https://api.discogs.com/database/search?country=${encodeURIComponent(country)}&type=release&per_page=100&page=${page || 1}&key=${key}&secret=${secret}`;
+  if (genre) url += `&genre=${encodeURIComponent(genre)}`;
+  if (style) url += `&style=${encodeURIComponent(style)}`;
 
   try {
     const response = await fetch(url, {
