@@ -310,6 +310,45 @@
   .ratio-bar { height: 2px; background: var(--border); margin-top: 4px; }
   .ratio-bar-fill { height: 2px; background: var(--gold); }
 
+  select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    padding: 8px 12px;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%237a7060'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 28px;
+    min-width: 160px;
+  }
+
+  select:focus { border-color: var(--gold-dim); }
+  select option { background: #1a1510; }
+
+  .genre-row {
+    display: flex;
+    gap: 12px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .genre-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    white-space: nowrap;
+  }
+
+  #style-select:disabled { opacity: 0.35; cursor: not-allowed; }
+
   #error-msg {
     display: none;
     padding: 14px 18px;
@@ -357,14 +396,38 @@
       <button id="fetch-btn" onclick="startFetch()">Explore</button>
     </div>
 
-    <div class="filters">
+    <div class="genre-row">
+      <span class="genre-label">Genre</span>
+      <select id="genre-select" onchange="onGenreChange()">
+        <option value="">— Any genre —</option>
+        <option value="Blues">Blues</option>
+        <option value="Brass &amp; Military">Brass &amp; Military</option>
+        <option value="Children's">Children's</option>
+        <option value="Classical">Classical</option>
+        <option value="Electronic">Electronic</option>
+        <option value="Folk, World, &amp; Country">Folk, World, &amp; Country</option>
+        <option value="Funk / Soul">Funk / Soul</option>
+        <option value="Hip Hop">Hip Hop</option>
+        <option value="Jazz">Jazz</option>
+        <option value="Latin">Latin</option>
+        <option value="Non-Music">Non-Music</option>
+        <option value="Pop">Pop</option>
+        <option value="Reggae">Reggae</option>
+        <option value="Rock">Rock</option>
+        <option value="Stage &amp; Screen">Stage &amp; Screen</option>
+      </select>
+      <span class="genre-label">Style</span>
+      <select id="style-select" disabled>
+        <option value="">— Any style —</option>
+      </select>
+    </div>
       <div class="filter-group">
         <label>Min. Wants</label>
-        <input type="number" id="min-wants" value="3" min="0">
+        <input type="number" id="min-wants" value="15" min="0">
       </div>
       <div class="filter-group">
         <label>Min. Have</label>
-        <input type="number" id="min-have" value="1" min="1">
+        <input type="number" id="min-have" value="2" min="1">
       </div>
       <div class="filter-group">
         <label>Show Top</label>
@@ -403,6 +466,40 @@
 </main>
 
 <script>
+const GENRE_STYLES = {
+  'Blues': ['Chicago Blues','Country Blues','Delta Blues','East Coast Blues','Electric Blues','Harmonica Blues','Jump Blues','Louisiana Blues','Modern Electric Blues','Piano Blues','Piedmont Blues','Texas Blues'],
+  'Brass & Military': ['Brass Band','Marches','Military','Pipe & Drum'],
+  "Children's": ['Educational','Nursery Rhymes','Story'],
+  'Classical': ['Baroque','Chamber Music','Choral','Classical','Contemporary','Early','Medieval','Modern','Opera','Orchestral','Renaissance','Romantic','Sonata','Symphony'],
+  'Electronic': ['Abstract','Acid','Acid House','Acid Jazz','Ambient','Bassline','Beat','Big Beat','Bleep','Breaks','Breakbeat','Breakcore','Chiptune','Dark Ambient','Deep House','Disco','Downtempo','Drone','Drum n Bass','Dub','Dub Techno','Dubstep','EBM','Electro','Euro House','Experimental','Freestyle','Gabber','Garage House','Glitch','Goa Trance','Happy Hardcore','Hard House','Hard Trance','Hardcore','Hi NRG','House','IDM','Industrial','Italo-Disco','Jungle','Leftfield','Minimal','Noise','Power Electronics','Progressive House','Progressive Trance','Psy-Trance','Rhythmic Noise','Speed Garage','Synth-pop','Tech House','Techno','Trance','Tribal House','Trip Hop','UK Garage'],
+  'Folk, World, & Country': ['African','Bluegrass','Cajun','Calypso','Canzone Napoletana','Celtic','Country','Fado','Flamenco','Folk','Highlife','Honky Tonk','Hymn','Indian Classical','Laïkó','MPB','Nordic','Polka','Salsa','Samba','Séga','Soukous','Soca','Tango','Volksmusik','Zydeco','Zouk'],
+  'Funk / Soul': ['Contemporary R&B','Disco','Free Funk','Funk','Gospel','Neo Soul','New Jack Swing','P.Funk','Psychedelic','Rhythm & Blues','Soul','Swingbeat','Vocal'],
+  'Hip Hop': ['Bass Music','Boom Bap','Conscious','Crunk','East Coast Hip Hop','Gangsta','Grime','Hardcore Hip-Hop','Horrorcore','Hyphy','Instrumental','Lo-Fi','Nerdcore','Pop Rap','Southern Hip Hop','Thug Rap','Trap','Trip Hop','West Coast Hip Hop'],
+  'Jazz': ['Acid Jazz','Afro-Cuban Jazz','Avant-garde Jazz','Bop','Bossa Nova','Contemporary Jazz','Cool Jazz','Dixieland','Free Jazz','Fusion','Hard Bop','Jazz-Funk','Jazz-Rock','Latin Jazz','Modal','Post Bop','Ragtime','Smooth Jazz','Soul Jazz','Swing','Vocal'],
+  'Latin': ['Afro-Cuban','Baião','Bossa Nova','Cumbia','Flamenco','Forró','Mambo','Mariachi','Merengue','Norteño','Nueva Canción','Ranchera','Reggaeton','Salsa','Samba','Son','Tango','Tejano','Tropical','Vallenato'],
+  'Non-Music': ['Dialogue','Education','Field Recording','Instruction','Interview','Monolog','Poetry','Political','Religious','Sound Art','Spoken Word','Story','Theatre'],
+  'Pop': ['Ballad','Bubblegum','Chanson','Dance-pop','Europop','J-pop','K-pop','Kayōkyoku','Leftfield','Noise','Schlager','Soft Rock','Synth-pop','Teen Pop','Vocal'],
+  'Reggae': ['Calypso','Dancehall','Dub','Lovers Rock','Ragga','Reggae','Rocksteady','Roots Reggae','Ska','Soca'],
+  'Rock': ['Alternative Rock','Arena Rock','Art Rock','Brit Pop','Classic Rock','Country Rock','Death Metal','Doom Metal','Folk Rock','Garage Rock','Glam','Gothic Rock','Grunge','Hard Rock','Heavy Metal','Indie Rock','Krautrock','Math Rock','New Wave','Noise Rock','Post Rock','Power Pop','Prog Rock','Psychedelic Rock','Punk','Rock & Roll','Shoegaze','Soft Rock','Southern Rock','Space Rock','Speed Metal','Stoner Rock','Surf','Thrash'],
+  'Stage & Screen': ['Musical','Score','Soundtrack','Theme'],
+};
+
+function onGenreChange() {
+  const genre = document.getElementById('genre-select').value;
+  const styleSelect = document.getElementById('style-select');
+  styleSelect.innerHTML = '<option value="">— Any style —</option>';
+  if (genre && GENRE_STYLES[genre]) {
+    GENRE_STYLES[genre].forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s; opt.textContent = s;
+      styleSelect.appendChild(opt);
+    });
+    styleSelect.disabled = false;
+  } else {
+    styleSelect.disabled = true;
+  }
+}
+
 let allResults = [];
 let stopRequested = false;
 
@@ -431,17 +528,21 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 async function startFetch() {
   const country = document.getElementById('country-input').value.trim();
+  const genre   = document.getElementById('genre-select').value.trim();
+  const style   = document.getElementById('style-select').value.trim();
   if (!country) { showError('Please enter a country name.'); return; }
 
   hideError();
   stopRequested = false;
   allResults = [];
+  const seenIds = new Set();
 
   const minWants = parseInt(document.getElementById('min-wants').value) || 0;
   const minHave  = parseInt(document.getElementById('min-have').value)  || 1;
   const topN     = parseInt(document.getElementById('top-n').value)     || 100;
 
-  document.getElementById('header-title').textContent = country + ' — Discogs Explorer';
+  const titleParts = [country, genre, style].filter(Boolean);
+  document.getElementById('header-title').textContent = titleParts.join(' · ') + ' — Discogs';
   document.getElementById('fetch-btn').disabled = true;
   document.getElementById('progress').style.display = 'block';
   document.getElementById('results-header').style.display = 'none';
@@ -457,7 +558,10 @@ async function startFetch() {
   while (true) {
     if (stopRequested) break;
 
-    const url = `/api/search?country=${encodeURIComponent(country)}&page=${page}`;
+    let apiUrl = `/api/search?country=${encodeURIComponent(country)}&page=${page}`;
+    if (genre) apiUrl += `&genre=${encodeURIComponent(genre)}`;
+    if (style) apiUrl += `&style=${encodeURIComponent(style)}`;
+    const url = apiUrl;
 
     let data;
     try {
@@ -489,6 +593,9 @@ async function startFetch() {
       const have = item?.community?.have ?? 0;
       const want = item?.community?.want ?? 0;
       if (have < minHave || want < minWants) continue;
+      // Deduplicate by Discogs release ID
+      if (seenIds.has(item.id)) continue;
+      seenIds.add(item.id);
       allResults.push({
         title:  item.title  || 'Unknown',
         year:   item.year   || '',
