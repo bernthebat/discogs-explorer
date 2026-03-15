@@ -955,23 +955,44 @@ async function buildPlaylist() {
   statusEl.textContent = 'Searching YouTube…';
 
   const videoIds = [];
+  let lastError = '';
 
   for (let i = 0; i < records.length; i++) {
     const r = records[i];
     const ytStatusEl = document.getElementById(`yt-status-${i}`);
 
-    // Build a good search query: "Artist – Album title year"
-    statusEl.textContent = `Searching ${i + 1} of ${records.length}…`;
+    // Discogs titles come as "Artist Name - Album Title" or "Artist Name – Album Title"
+    // Split on em-dash or hyphen, use artist + first few words of album for best YT results
+    const parts = r.title.split(/\s[–-]\s/);
+    let query;
+    if (parts.length >= 2) {
+      const artist = parts[0].trim();
+      const album  = parts.slice(1).join(' ').trim();
+      // Use artist + album — year gives more precise results
+      query = `${artist} ${album} ${r.year}`.trim();
+    } else {
+      query = `${r.title} ${r.year}`.trim();
+    }
+
+    statusEl.textContent = `Searching ${i + 1} of ${records.length}: ${query}`;
 
     try {
-      const resp = await fetch(`/api/youtube?q=${encodeURIComponent(r.title + ' ' + r.year)}`);
+      const resp = await fetch(`/api/youtube?q=${encodeURIComponent(query)}`);
+      const data = await resp.json();
+
       if (resp.status === 429) {
         statusEl.className = 'playlist-status err';
         statusEl.textContent = 'YouTube quota exceeded — try again tomorrow.';
         btn.disabled = false;
         return;
       }
-      const data = await resp.json();
+
+      if (data.error) {
+        lastError = data.error;
+        if (ytStatusEl) { ytStatusEl.textContent = '✗'; ytStatusEl.className = 'rec-yt-status miss'; }
+        continue;
+      }
+
       if (data.videoId) {
         videoIds.push(data.videoId);
         if (ytStatusEl) { ytStatusEl.textContent = '✓'; ytStatusEl.className = 'rec-yt-status found'; }
@@ -979,10 +1000,10 @@ async function buildPlaylist() {
         if (ytStatusEl) { ytStatusEl.textContent = '✗'; ytStatusEl.className = 'rec-yt-status miss'; }
       }
     } catch(e) {
+      lastError = e.message;
       if (ytStatusEl) { ytStatusEl.textContent = '✗'; ytStatusEl.className = 'rec-yt-status miss'; }
     }
 
-    // Small delay to avoid hammering YouTube
     await sleep(300);
   }
 
@@ -990,14 +1011,15 @@ async function buildPlaylist() {
 
   if (videoIds.length === 0) {
     statusEl.className = 'playlist-status err';
-    statusEl.textContent = 'No videos found. Try a different scene.';
+    statusEl.textContent = lastError
+      ? `Error: ${lastError}`
+      : 'No videos found. Try a different scene.';
     return;
   }
 
-  // Build the YouTube watch_videos URL — creates an instant playlist
   const playlistUrl = `https://www.youtube.com/watch_videos?video_ids=${videoIds.join(',')}`;
   statusEl.className = 'playlist-status done';
-  statusEl.innerHTML = `${videoIds.length} tracks found — <a href="${playlistUrl}" target="_blank" rel="noopener" style="color:var(--gold);text-decoration:underline">Open playlist ↗</a>`;
+  statusEl.innerHTML = `${videoIds.length} of ${records.length} tracks found — <a href="${playlistUrl}" target="_blank" rel="noopener" style="color:var(--gold);text-decoration:underline">Open playlist ↗</a>`;
 }
 
 document.getElementById('country-input').addEventListener('keydown', e => {
