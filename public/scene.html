@@ -382,7 +382,7 @@
 
   .record-row {
     display: grid;
-    grid-template-columns: 32px 1fr 60px 60px 80px;
+    grid-template-columns: 32px 1fr 60px 60px 80px 32px;
     gap: 0 14px;
     align-items: center;
     padding: 9px 12px;
@@ -390,6 +390,19 @@
     color: inherit;
     transition: background 0.15s;
     border-left: 3px solid transparent;
+  }
+
+  .rec-headers {
+    display: grid;
+    grid-template-columns: 32px 1fr 60px 60px 80px 32px;
+    gap: 0 14px;
+    padding: 0 12px 8px;
+    font-size: 10px;
+    color: var(--ink-dim);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 4px;
   }
 
   .record-row:hover {
@@ -434,18 +447,55 @@
     text-align: right;
   }
 
-  .rec-headers {
-    display: grid;
-    grid-template-columns: 32px 1fr 60px 60px 80px;
-    gap: 0 14px;
-    padding: 0 12px 8px;
-    font-size: 10px;
-    color: var(--ink-dim);
-    text-transform: uppercase;
-    letter-spacing: 1.5px;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 4px;
+  .playlist-section {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
   }
+
+  .playlist-btn {
+    background: #c00;
+    color: #fff;
+    border: none;
+    font-family: 'Lato', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    padding: 10px 22px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+  }
+
+  .playlist-btn:hover:not(:disabled) { background: #a00; }
+  .playlist-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .playlist-status {
+    font-size: 12px;
+    color: var(--ink-dim);
+    font-style: italic;
+  }
+
+  .playlist-status.done { color: var(--want); }
+  .playlist-status.err  { color: var(--red); }
+
+  .rec-yt-status {
+    font-size: 10px;
+    text-align: right;
+    color: var(--ink-dim);
+  }
+
+  .rec-yt-status.found { color: var(--want); }
+  .rec-yt-status.miss  { color: var(--red); opacity: 0.7; }
 
   #error-msg {
     display: none;
@@ -590,8 +640,15 @@
     <div class="rec-headers">
       <div>#</div><div>Title</div><div style="text-align:right">Year</div>
       <div style="text-align:right">Wants</div><div style="text-align:right">Ratio</div>
+      <div style="text-align:right">YT</div>
     </div>
     <div id="records-list"></div>
+    <div class="playlist-section">
+      <button class="playlist-btn" id="playlist-btn" onclick="buildPlaylist()">
+        ▶ Build YouTube Playlist
+      </button>
+      <span class="playlist-status" id="playlist-status"></span>
+    </div>
   </div>
 
 </main>
@@ -851,6 +908,10 @@ function renderScene(country, decade, releases) {
     .sort((a,b) => b.want - a.want)
     .slice(0, 20);
 
+  // Store globally for playlist builder
+  window._sceneRecords = withRatio;
+  window._sceneLabel   = `${country} ${decade}s`;
+
   const recordsEl = document.getElementById('records-list');
   recordsEl.innerHTML = '';
   withRatio.forEach((r, i) => {
@@ -862,9 +923,15 @@ function renderScene(country, decade, releases) {
         <div class="rec-year">${esc(r.year)}</div>
         <div class="rec-want">${r.want}</div>
         <div class="rec-ratio">${r.ratio.toFixed(2)}×</div>
+        <div class="rec-yt-status" id="yt-status-${i}">—</div>
       </a>`;
   });
   if (withRatio.length === 0) recordsEl.innerHTML = '<div style="padding:16px;color:var(--ink-dim)">Not enough community data for this scene yet.</div>';
+
+  // Reset playlist button
+  document.getElementById('playlist-btn').disabled = false;
+  document.getElementById('playlist-status').textContent = '';
+  document.getElementById('playlist-status').className = 'playlist-status';
 
   document.getElementById('records-panel').style.display = 'block';
 
@@ -874,6 +941,63 @@ function renderScene(country, decade, releases) {
       el.style.width = el.style.width; // trigger reflow already set
     });
   }, 50);
+}
+
+async function buildPlaylist() {
+  const records = window._sceneRecords;
+  const label   = window._sceneLabel || 'Scene';
+  if (!records || records.length === 0) return;
+
+  const btn = document.getElementById('playlist-btn');
+  const statusEl = document.getElementById('playlist-status');
+  btn.disabled = true;
+  statusEl.className = 'playlist-status';
+  statusEl.textContent = 'Searching YouTube…';
+
+  const videoIds = [];
+
+  for (let i = 0; i < records.length; i++) {
+    const r = records[i];
+    const ytStatusEl = document.getElementById(`yt-status-${i}`);
+
+    // Build a good search query: "Artist – Album title year"
+    statusEl.textContent = `Searching ${i + 1} of ${records.length}…`;
+
+    try {
+      const resp = await fetch(`/api/youtube?q=${encodeURIComponent(r.title + ' ' + r.year)}`);
+      if (resp.status === 429) {
+        statusEl.className = 'playlist-status err';
+        statusEl.textContent = 'YouTube quota exceeded — try again tomorrow.';
+        btn.disabled = false;
+        return;
+      }
+      const data = await resp.json();
+      if (data.videoId) {
+        videoIds.push(data.videoId);
+        if (ytStatusEl) { ytStatusEl.textContent = '✓'; ytStatusEl.className = 'rec-yt-status found'; }
+      } else {
+        if (ytStatusEl) { ytStatusEl.textContent = '✗'; ytStatusEl.className = 'rec-yt-status miss'; }
+      }
+    } catch(e) {
+      if (ytStatusEl) { ytStatusEl.textContent = '✗'; ytStatusEl.className = 'rec-yt-status miss'; }
+    }
+
+    // Small delay to avoid hammering YouTube
+    await sleep(300);
+  }
+
+  btn.disabled = false;
+
+  if (videoIds.length === 0) {
+    statusEl.className = 'playlist-status err';
+    statusEl.textContent = 'No videos found. Try a different scene.';
+    return;
+  }
+
+  // Build the YouTube watch_videos URL — creates an instant playlist
+  const playlistUrl = `https://www.youtube.com/watch_videos?video_ids=${videoIds.join(',')}`;
+  statusEl.className = 'playlist-status done';
+  statusEl.innerHTML = `${videoIds.length} tracks found — <a href="${playlistUrl}" target="_blank" rel="noopener" style="color:var(--gold);text-decoration:underline">Open playlist ↗</a>`;
 }
 
 document.getElementById('country-input').addEventListener('keydown', e => {
