@@ -870,10 +870,13 @@ function renderScene(country, decade, releases) {
   sortedArtists.forEach(([name, count]) => {
     const pct = Math.round((count / maxArtist) * 100);
     artistsEl.innerHTML += `
-      <div class="bar-row">
+      <div class="bar-row" style="margin-bottom:12px">
         <div class="bar-label" title="${esc(name)}">${esc(name)}</div>
         <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
         <div class="bar-count">${count}</div>
+        <a href="/artist.html?artist=${encodeURIComponent(name)}" target="_blank"
+           style="font-size:10px;color:var(--gold);text-decoration:none;white-space:nowrap;border-bottom:1px solid var(--border);padding-bottom:1px;margin-left:8px;flex-shrink:0;"
+           title="Open Career River for ${esc(name)}">Dig deeper ↗</a>
       </div>`;
   });
   if (sortedArtists.length === 0) artistsEl.innerHTML = '<div style="color:var(--ink-dim);font-size:12px">No artist data found</div>';
@@ -916,6 +919,8 @@ function renderScene(country, decade, releases) {
   recordsEl.innerHTML = '';
   withRatio.forEach((r, i) => {
     const rankClass = i < 3 ? 'top' : '';
+    // Extract artist name from "Artist - Album" format
+    const artistFromTitle = r.title.split(/\s[–-]\s/)[0].trim();
     recordsEl.innerHTML += `
       <a class="record-row" href="${esc(r.url)}" target="_blank" rel="noopener">
         <div class="rec-rank ${rankClass}">${i+1}</div>
@@ -924,7 +929,13 @@ function renderScene(country, decade, releases) {
         <div class="rec-want">${r.want}</div>
         <div class="rec-ratio">${r.ratio.toFixed(2)}×</div>
         <div class="rec-yt-status" id="yt-status-${i}">—</div>
-      </a>`;
+      </a>
+      <div style="padding:0 12px 6px 52px;">
+        <a href="/artist.html?artist=${encodeURIComponent(artistFromTitle)}" target="_blank"
+           style="font-size:10px;color:var(--gold);text-decoration:none;border-bottom:1px solid var(--border);padding-bottom:1px;"
+           onclick="event.stopPropagation()">Dig deeper into ${esc(artistFromTitle)} ↗</a>
+      </div>`;
+  });
   });
   if (withRatio.length === 0) recordsEl.innerHTML = '<div style="padding:16px;color:var(--ink-dim)">Not enough community data for this scene yet.</div>';
 
