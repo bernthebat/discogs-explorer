@@ -372,9 +372,16 @@
 <script>
 const ROLE_COLOURS = {
   'Main / Featured': '#c9a84c',
+  'Other':           '#888888',
+};
+
+const ROLE_COLOURS = {
+  'Main / Featured': '#c9a84c',
   'Songwriter':      '#6aab8c',
   'Other':           '#888888',
 };
+
+const ROLE_PRIORITY = { 'Main / Featured': 3, 'Songwriter': 2, 'Other': 1 };
 
 function guessRole(roleStr, type) {
   const r = (roleStr || '').toLowerCase().trim();
@@ -387,16 +394,16 @@ function guessRole(roleStr, type) {
   if (r.includes('feat') || r.includes('featuring') ||
       r.includes('vocal') || r.includes('voice') || r.includes('singer'))
     return 'Main / Featured';
+  if (type === 'main')           return 'Main / Featured';
 
-  // Songwriter / Composer
-  if (r.includes('written') || r.includes('writer')   ||
-      r.includes('composer') || r.includes('lyrics')  ||
-      r.includes('music by') || r.includes('lyricist') ||
-      r.includes('words')    || r.includes('composed'))
+  // Songwriter / Composer — freeform credit strings
+  if (r.includes('written')  || r.includes('writer')   ||
+      r.includes('composer') || r.includes('composed') ||
+      r.includes('lyrics')   || r.includes('lyricist') ||
+      r.includes('music by') || r.includes('words')    ||
+      r.includes('text by')  || r.includes('author'))
     return 'Songwriter';
 
-  // Everything else — producer, arranger, mixed by, session player, etc.
-  if (type === 'main') return 'Main / Featured';
   return 'Other';
 }
 
@@ -423,7 +430,7 @@ document.getElementById('artist-name').textContent = artistName || 'Artist';
 document.title = `${artistName} — Career River`;
 
 // ── Active role filters
-const activeRoles = new Set(Object.keys(ROLE_COLOURS));
+const activeRoles = new Set(['Main / Featured', 'Songwriter', 'Other']);
 let allReleases = [];
 let focusDecade = null;
 
@@ -583,25 +590,32 @@ function buildDiscogsUrl(r) {
 }
 
 function renderRiver(releases) {
-  // ── Filter to releases with a year
-  const withYear = releases
+  // ── Filter to releases with a year and map roles
+  const mapped = releases
     .filter(r => r.year && parseInt(r.year) > 1900 && parseInt(r.year) <= new Date().getFullYear())
-    .map(r => {
-      const computedRole = guessRole(r.role, r.type === 'main' ? 'main' : 'extra');
-      return {
-        id:     r.id,
-        title:  r.title || 'Unknown',
-        year:   parseInt(r.year),
-        role:   computedRole,
-        format: r.format || '',
-        label:  r.label  || '',
-        want:   r.stats?.community?.in_wantlist  || 0,
-        have:   r.stats?.community?.in_collection || 0,
-        thumb:  r.thumb  || '',
-        url:    buildDiscogsUrl(r),
-        type:   r.type   || 'release',
-      };
-    });
+    .map(r => ({
+      id:     r.id,
+      title:  r.title || 'Unknown',
+      year:   parseInt(r.year),
+      role:   guessRole(r.role, r.type === 'main' ? 'main' : 'extra'),
+      format: r.format || '',
+      label:  r.label  || '',
+      want:   r.stats?.community?.in_wantlist   || 0,
+      have:   r.stats?.community?.in_collection || 0,
+      thumb:  r.thumb  || '',
+      url:    buildDiscogsUrl(r),
+      type:   r.type   || 'release',
+    }));
+
+  // ── Deduplicate by ID — keep the entry with the highest priority role
+  const byId = {};
+  for (const r of mapped) {
+    if (!byId[r.id] || ROLE_PRIORITY[r.role] > ROLE_PRIORITY[byId[r.id].role]) {
+      byId[r.id] = r;
+    }
+  }
+  const withYear = Object.values(byId);
+  window._withYear = withYear; // store for toggleRole
 
   if (withYear.length === 0) {
     showError('No dated releases found for this artist.');
@@ -678,10 +692,12 @@ function toggleRole(role) {
     el.classList.toggle('active',   activeRoles.has(el.dataset.role));
     el.classList.toggle('inactive', !activeRoles.has(el.dataset.role));
   });
-  const years = allReleases.filter(r=>r.year).map(r=>parseInt(r.year)).filter(y=>y>1900);
-  const minY = Math.min(...years), maxY = Math.max(...years);
-  drawSVG(allReleases.filter(r=>r.year&&parseInt(r.year)>1900&&parseInt(r.year)<=new Date().getFullYear())
-    .map(r=>({...r,year:parseInt(r.year),role:guessRole(r.role,r.type==='main'?'main':'extra')})), minY, maxY);
+  if (window._withYear) {
+    const years  = window._withYear.map(r => r.year);
+    const minY   = Math.min(...years);
+    const maxY   = Math.max(...years);
+    drawSVG(window._withYear, focusDecade || minY, focusDecade ? focusDecade + 9 : maxY);
+  }
 }
 
 function drawSVG(releases, minYear, maxYear) {
