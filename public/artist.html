@@ -558,6 +558,8 @@ async function fetchAndRender(artistId, artistName) {
       if (totalPages === null) totalPages = data.pagination?.pages || 1;
 
       for (const r of data.releases || []) {
+        // Debug: log first 10 releases to see real role values
+        if (releases.length < 10) console.log('DISCOGS RELEASE:', JSON.stringify({title: r.title, year: r.year, role: r.role, type: r.type, status: r.status}));
         releases.push(r);
       }
 
