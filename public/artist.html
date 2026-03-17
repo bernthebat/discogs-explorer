@@ -378,20 +378,39 @@ const ROLE_COLOURS = {
   'Other':      '#666666',
 };
 
-const ROLE_KEYWORDS = {
-  'Composer':  ['written-by','writer','composer','lyrics','music by','lyricist','composed'],
-  'Producer':  ['producer','produced','executive producer'],
-  'Arranger':  ['arranged','arranger','orchestrated','conductor','directed by'],
-  'Performer': ['vocals','voice','instruments','performer','featured','main'],
-};
-
 function guessRole(roleStr, type) {
-  if (!roleStr && type === 'main') return 'Performer';
-  const r = (roleStr || '').toLowerCase();
-  for (const [role, keywords] of Object.entries(ROLE_KEYWORDS)) {
-    if (keywords.some(k => r.includes(k))) return role;
-  }
+  const r = (roleStr || '').toLowerCase().trim();
+
+  // Discogs artist/releases endpoint returns these specific values:
+  // "Main" = primary credited artist → Performer
+  // "Appearance" = credited on someone else's release → could be anything
+  // "TrackAppearance" = credited on specific tracks → Performer
+  if (r === 'main')             return 'Performer';
+  if (r === 'trackappearance')  return 'Performer';
+
+  // Freeform credit strings from extraartists
+  if (r.includes('written') || r.includes('composer') || r.includes('lyrics') ||
+      r.includes('music by') || r.includes('lyricist') || r.includes('words'))
+    return 'Composer';
+
+  if (r.includes('producer') || r.includes('produced'))
+    return 'Producer';
+
+  if (r.includes('arranged') || r.includes('arranger') || r.includes('orchestrat') ||
+      r.includes('conductor') || r.includes('directed by'))
+    return 'Arranger';
+
+  if (r.includes('vocal') || r.includes('voice') || r.includes('singer') ||
+      r.includes('performer') || r.includes('featuring') || r.includes('feat'))
+    return 'Performer';
+
+  // "Appearance" with no further role info — treat as Performer since
+  // they showed up on a record
+  if (r === 'appearance') return 'Performer';
+
+  // Fallback: if they're listed as main artist type, they're a Performer
   if (type === 'main') return 'Performer';
+
   return 'Other';
 }
 
