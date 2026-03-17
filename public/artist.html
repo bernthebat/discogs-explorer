@@ -380,11 +380,12 @@ const ROLE_COLOURS = {
 
 function guessRole(roleStr, type) {
   const r = (roleStr || '').toLowerCase().trim();
-  if (roleStr) console.log('guessRole input:', JSON.stringify(roleStr), '→ r:', JSON.stringify(r));
-  if (r === 'main')             return 'Performer';
-  if (r === 'trackappearance')  return 'Performer';
 
-  // Freeform credit strings from extraartists
+  if (r === 'main')                return 'Performer';
+  if (r === 'trackappearance')     return 'Performer';
+  if (r === 'appearance')          return 'Performer';
+  if (r === 'unofficialrelease')   return 'Performer';
+
   if (r.includes('written') || r.includes('composer') || r.includes('lyrics') ||
       r.includes('music by') || r.includes('lyricist') || r.includes('words'))
     return 'Composer';
@@ -393,18 +394,14 @@ function guessRole(roleStr, type) {
     return 'Producer';
 
   if (r.includes('arranged') || r.includes('arranger') || r.includes('orchestrat') ||
-      r.includes('conductor') || r.includes('directed by'))
+      r.includes('conductor') || r.includes('directed by') ||
+      r.includes('mixed') || r.includes('mix'))
     return 'Arranger';
 
   if (r.includes('vocal') || r.includes('voice') || r.includes('singer') ||
       r.includes('performer') || r.includes('featuring') || r.includes('feat'))
     return 'Performer';
 
-  // "Appearance" with no further role info — treat as Performer since
-  // they showed up on a record
-  if (r === 'appearance') return 'Performer';
-
-  // Fallback: if they're listed as main artist type, they're a Performer
   if (type === 'main') return 'Performer';
 
   return 'Other';
@@ -554,8 +551,6 @@ async function fetchAndRender(artistId, artistName) {
       if (totalPages === null) totalPages = data.pagination?.pages || 1;
 
       for (const r of data.releases || []) {
-        // Debug: log first 10 releases to see real role values
-        if (releases.length < 10) console.log('DISCOGS RELEASE:', JSON.stringify({title: r.title, year: r.year, role: r.role, type: r.type, status: r.status}));
         releases.push(r);
       }
 
@@ -600,9 +595,6 @@ function renderRiver(releases) {
     .filter(r => r.year && parseInt(r.year) > 1900 && parseInt(r.year) <= new Date().getFullYear())
     .map(r => {
       const computedRole = guessRole(r.role, r.type === 'main' ? 'main' : 'extra');
-      if (r.title && r.title.includes('Abu Ali') || r.title.includes('أبو علي')) {
-        console.log('ABU ALI ROLE DEBUG:', r.role, '→', computedRole, 'type:', r.type);
-      }
       return {
         id:     r.id,
         title:  r.title || 'Unknown',
