@@ -381,23 +381,24 @@ const ROLE_PRIORITY = { 'Main / Featured': 3, 'Songwriter': 2, 'Other': 1 };
 function guessRole(roleStr, type) {
   const r = (roleStr || '').toLowerCase().trim();
 
-  // Main or featured artist
-  if (r === 'main')              return 'Main / Featured';
-  if (r === 'trackappearance')   return 'Main / Featured';
-  if (r === 'appearance')        return 'Main / Featured';
-  if (r === 'unofficialrelease') return 'Main / Featured';
-  if (r.includes('feat') || r.includes('featuring') ||
-      r.includes('vocal') || r.includes('voice') || r.includes('singer'))
-    return 'Main / Featured';
-  if (type === 'main')           return 'Main / Featured';
-
-  // Songwriter / Composer — freeform credit strings
+  // Songwriter / Composer — check these FIRST before presence checks
+  // because a release can be "Appearance" but the actual credit is "Written-By"
   if (r.includes('written')  || r.includes('writer')   ||
       r.includes('composer') || r.includes('composed') ||
       r.includes('lyrics')   || r.includes('lyricist') ||
       r.includes('music by') || r.includes('words')    ||
       r.includes('text by')  || r.includes('author'))
     return 'Songwriter';
+
+  // Definitive main/featured values
+  if (r === 'main')              return 'Main / Featured';
+  if (r === 'trackappearance')   return 'Main / Featured';
+  if (r === 'unofficialrelease') return 'Main / Featured';
+  if (r === 'appearance')        return 'Main / Featured';
+  if (r.includes('feat') || r.includes('featuring') ||
+      r.includes('vocal') || r.includes('voice') || r.includes('singer'))
+    return 'Main / Featured';
+  if (type === 'main')           return 'Main / Featured';
 
   return 'Other';
 }
