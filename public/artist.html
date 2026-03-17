@@ -380,11 +380,7 @@ const ROLE_COLOURS = {
 
 function guessRole(roleStr, type) {
   const r = (roleStr || '').toLowerCase().trim();
-
-  // Discogs artist/releases endpoint returns these specific values:
-  // "Main" = primary credited artist → Performer
-  // "Appearance" = credited on someone else's release → could be anything
-  // "TrackAppearance" = credited on specific tracks → Performer
+  if (roleStr) console.log('guessRole input:', JSON.stringify(roleStr), '→ r:', JSON.stringify(r));
   if (r === 'main')             return 'Performer';
   if (r === 'trackappearance')  return 'Performer';
 
@@ -602,19 +598,25 @@ function renderRiver(releases) {
   // ── Filter to releases with a year
   const withYear = releases
     .filter(r => r.year && parseInt(r.year) > 1900 && parseInt(r.year) <= new Date().getFullYear())
-    .map(r => ({
-      id:     r.id,
-      title:  r.title || 'Unknown',
-      year:   parseInt(r.year),
-      role:   guessRole(r.role, r.type === 'main' ? 'main' : 'extra'),
-      format: r.format || '',
-      label:  r.label  || '',
-      want:   r.stats?.community?.in_wantlist  || 0,
-      have:   r.stats?.community?.in_collection || 0,
-      thumb:  r.thumb  || '',
-      url:    buildDiscogsUrl(r),
-      type:   r.type   || 'release',
-    }));
+    .map(r => {
+      const computedRole = guessRole(r.role, r.type === 'main' ? 'main' : 'extra');
+      if (r.title && r.title.includes('Abu Ali') || r.title.includes('أبو علي')) {
+        console.log('ABU ALI ROLE DEBUG:', r.role, '→', computedRole, 'type:', r.type);
+      }
+      return {
+        id:     r.id,
+        title:  r.title || 'Unknown',
+        year:   parseInt(r.year),
+        role:   computedRole,
+        format: r.format || '',
+        label:  r.label  || '',
+        want:   r.stats?.community?.in_wantlist  || 0,
+        have:   r.stats?.community?.in_collection || 0,
+        thumb:  r.thumb  || '',
+        url:    buildDiscogsUrl(r),
+        type:   r.type   || 'release',
+      };
+    });
 
   if (withYear.length === 0) {
     showError('No dated releases found for this artist.');
