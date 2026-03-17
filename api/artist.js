@@ -14,7 +14,7 @@ export default async function handler(req, res) {
     // ── Action: search for artist by name → return top match
     if (action === 'search') {
       if (!name) return res.status(400).json({ error: 'Missing name' });
-      const url = `https://api.discogs.com/database/search?q=${encodeURIComponent(name)}&type=artist&per_page=5&key=${key}&secret=${secret}`;
+      const url = `https://api.discogs.com/database/search?q=${encodeURIComponent(name)}&type=artist&per_page=10&key=${key}&secret=${secret}`;
       const resp = await fetch(url, { headers: { 'User-Agent': 'DiscogsSceneArchaeologist/1.0' } });
       if (!resp.ok) return res.status(resp.status).json({ error: 'Discogs search failed' });
       const data = await resp.json();
