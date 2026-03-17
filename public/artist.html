@@ -371,39 +371,32 @@
 
 <script>
 const ROLE_COLOURS = {
-  'Performer':  '#c9a84c',
-  'Composer':   '#6aab8c',
-  'Producer':   '#8888cc',
-  'Arranger':   '#cc8844',
-  'Other':      '#666666',
+  'Main / Featured': '#c9a84c',
+  'Songwriter':      '#6aab8c',
+  'Other':           '#888888',
 };
 
 function guessRole(roleStr, type) {
   const r = (roleStr || '').toLowerCase().trim();
 
-  if (r === 'main')                return 'Performer';
-  if (r === 'trackappearance')     return 'Performer';
-  if (r === 'appearance')          return 'Performer';
-  if (r === 'unofficialrelease')   return 'Performer';
+  // Main or featured artist
+  if (r === 'main')              return 'Main / Featured';
+  if (r === 'trackappearance')   return 'Main / Featured';
+  if (r === 'appearance')        return 'Main / Featured';
+  if (r === 'unofficialrelease') return 'Main / Featured';
+  if (r.includes('feat') || r.includes('featuring') ||
+      r.includes('vocal') || r.includes('voice') || r.includes('singer'))
+    return 'Main / Featured';
 
-  if (r.includes('written') || r.includes('composer') || r.includes('lyrics') ||
-      r.includes('music by') || r.includes('lyricist') || r.includes('words'))
-    return 'Composer';
+  // Songwriter / Composer
+  if (r.includes('written') || r.includes('writer')   ||
+      r.includes('composer') || r.includes('lyrics')  ||
+      r.includes('music by') || r.includes('lyricist') ||
+      r.includes('words')    || r.includes('composed'))
+    return 'Songwriter';
 
-  if (r.includes('producer') || r.includes('produced'))
-    return 'Producer';
-
-  if (r.includes('arranged') || r.includes('arranger') || r.includes('orchestrat') ||
-      r.includes('conductor') || r.includes('directed by') ||
-      r.includes('mixed') || r.includes('mix'))
-    return 'Arranger';
-
-  if (r.includes('vocal') || r.includes('voice') || r.includes('singer') ||
-      r.includes('performer') || r.includes('featuring') || r.includes('feat'))
-    return 'Performer';
-
-  if (type === 'main') return 'Performer';
-
+  // Everything else — producer, arranger, mixed by, session player, etc.
+  if (type === 'main') return 'Main / Featured';
   return 'Other';
 }
 
