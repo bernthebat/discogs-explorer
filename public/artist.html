@@ -538,7 +538,7 @@ function drawRiver() {
   const pxPerYear = ZOOM_BASE * ZOOM_STEPS[zoomIdx];
   document.getElementById('zoom-label').textContent = ZOOM_STEPS[zoomIdx] + '×';
 
-  const PL = 60, PR = 60, PT = 30, PB = 50, RH = 240;
+  const PL = 60, PR = 60, PT = 30, PB = 50, RH = 340;
   const yearSpan = Math.max(_maxYear - _minYear, 1);
   const svgW = PL + yearSpan * pxPerYear + PR;
   const svgH = PT + RH + PB;
@@ -582,57 +582,86 @@ function drawRiver() {
     }
   }
 
-  // Bubbles with collision avoidance
-  const bucketSize = pxPerYear >= 40 ? 1 : pxPerYear >= 15 ? 2 : 5;
-  const placed = {};
-
+  // Bubbles — every record gets its own dot, no merging
+  // Sort by want desc so bigger dots get placed first
   const visible = _withYear.filter(r => activeRoles.has(r.role));
-  const sorted  = [...visible].sort((a,b) => b.want - a.want);
+  const sorted  = [...visible].sort((a, b) => b.want - a.want);
+
+  // Track all placed dot positions for collision avoidance
+  const placed = [];
 
   sorted.forEach(r => {
     const colour = ROLE_MAP[r.role]?.colour || '#555';
-    const radius = Math.max(4, Math.min(24, 4 + Math.log10(r.want + 1) * 5.5));
+    const radius = Math.max(4, Math.min(14, 4 + Math.log10(r.want + 1) * 4));
     const x      = cx(r.year);
-    const bucket = Math.floor(r.year / bucketSize);
-    const others = placed[bucket] || [];
 
-    // Find non-colliding Y position
+    // Try positions radiating out from centre
+    // More attempts at higher zoom levels
     let bestY = midY;
-    const offsets = [0];
-    for (let i = 1; i <= 30; i++) {
-      offsets.push(i * (radius * 2 + 3));
-      offsets.push(-i * (radius * 2 + 3));
+    let minOverlap = Infinity;
+
+    const step = radius * 2 + 2;
+    const maxOffset = RH / 2 - radius;
+    const candidates = [0];
+    for (let i = step; i <= maxOffset; i += step) {
+      candidates.push(i);
+      candidates.push(-i);
     }
-    for (const dy of offsets) {
+    // Also try fractional steps to fill gaps
+    for (let i = step * 0.5; i <= maxOffset; i += step) {
+      candidates.push(i);
+      candidates.push(-i);
+    }
+    candidates.sort((a, b) => Math.abs(a) - Math.abs(b));
+
+    for (const dy of candidates) {
       const tryY = midY + dy;
       if (tryY - radius < PT || tryY + radius > PT + RH) continue;
-      const clash = others.some(o => {
-        const dx = x - o.x, ddy = tryY - o.y;
-        return Math.sqrt(dx*dx + ddy*ddy) < radius + o.r + 2;
-      });
-      if (!clash) { bestY = tryY; break; }
+
+      // Check overlap with all previously placed dots
+      let maxOverlapHere = 0;
+      for (const p of placed) {
+        const dx   = x - p.x;
+        const ddy  = tryY - p.y;
+        const dist = Math.sqrt(dx * dx + ddy * ddy);
+        const overlap = (radius + p.r + 1) - dist;
+        if (overlap > maxOverlapHere) maxOverlapHere = overlap;
+      }
+
+      if (maxOverlapHere <= 0) {
+        // No collision — use this spot
+        bestY = tryY;
+        minOverlap = 0;
+        break;
+      } else if (maxOverlapHere < minOverlap) {
+        // Better than previous best (least overlap)
+        minOverlap = maxOverlapHere;
+        bestY = tryY;
+      }
     }
-    others.push({x, y: bestY, r: radius});
-    placed[bucket] = others;
+
+    placed.push({ x, y: bestY, r: radius });
 
     // Glow
     const glow = document.createElementNS(ns, 'circle');
-    glow.setAttribute('cx',x); glow.setAttribute('cy',bestY);
-    glow.setAttribute('r', radius+5);
-    glow.setAttribute('fill',colour); glow.setAttribute('opacity','0.07');
-    glow.setAttribute('pointer-events','none');
+    glow.setAttribute('cx', x); glow.setAttribute('cy', bestY);
+    glow.setAttribute('r', radius + 5);
+    glow.setAttribute('fill', colour);
+    glow.setAttribute('opacity', '0.07');
+    glow.setAttribute('pointer-events', 'none');
     svg.appendChild(glow);
 
     // Dot
     const dot = document.createElementNS(ns, 'circle');
-    dot.setAttribute('cx',x); dot.setAttribute('cy',bestY);
+    dot.setAttribute('cx', x); dot.setAttribute('cy', bestY);
     dot.setAttribute('r', radius);
-    dot.setAttribute('fill',colour); dot.setAttribute('opacity','0.85');
+    dot.setAttribute('fill', colour);
+    dot.setAttribute('opacity', '0.85');
     dot.style.cursor = 'pointer';
     dot.addEventListener('mouseenter', e => showTooltip(e, r, colour));
     dot.addEventListener('mousemove',  e => moveTooltip(e));
     dot.addEventListener('mouseleave', hideTooltip);
-    dot.addEventListener('click', () => { if (r.url !== '#') window.open(r.url,'_blank','noopener'); });
+    dot.addEventListener('click', () => { if (r.url !== '#') window.open(r.url, '_blank', 'noopener'); });
     svg.appendChild(dot);
   });
 }
