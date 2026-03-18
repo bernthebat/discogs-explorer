@@ -142,7 +142,19 @@
     <div><div class="stat-val" id="stat-span">—</div><div class="stat-lbl">Career span</div></div>
     <div><div class="stat-val" id="stat-peak">—</div><div class="stat-lbl">Peak decade</div></div>
     <div><div class="stat-val" id="stat-main">—</div><div class="stat-lbl">As main artist</div></div>
-    <div><div class="stat-val" id="stat-writer">—</div><div class="stat-lbl">As songwriter</div></div>
+    <div><div class="stat-val" id="stat-producer">—</div><div class="stat-lbl">As producer</div></div>
+    <div><div class="stat-val" id="stat-appearance">—</div><div class="stat-lbl">Appearances</div></div>
+  </div>
+
+  <div id="enrich-bar" style="display:none;margin-bottom:16px;padding:14px 18px;background:var(--surface);border:1px solid var(--border);display:none;align-items:center;gap:16px;flex-wrap:wrap;">
+    <div style="flex:1;min-width:200px;">
+      <div style="font-size:12px;color:var(--ink-mid);margin-bottom:3px;">Songwriter credits are hidden inside individual release pages.</div>
+      <div style="font-size:11px;color:var(--ink-dim);">Fetching the top 50 appearances will reveal which are songwriter credits (~1 min).</div>
+    </div>
+    <button id="enrich-btn" onclick="enrichSongwriter()" style="background:var(--surface2);color:var(--ink-mid);border:1px solid var(--border);font-family:'Lato',sans-serif;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;padding:8px 18px;cursor:pointer;border-radius:2px;white-space:nowrap;">
+      Reveal Songwriter Credits
+    </button>
+    <span id="enrich-status" style="font-size:11px;color:var(--ink-dim);font-style:italic;"></span>
   </div>
   <div class="controls" id="controls" style="display:none">
     <div class="legend" id="legend"></div>
@@ -171,32 +183,17 @@ const ROLES = [
   { key: 'Main / Featured', colour: '#c9a84c', priority: 3 },
   { key: 'Songwriter',      colour: '#6aab8c', priority: 2 },
   { key: 'Producer',        colour: '#8888cc', priority: 1 },
-  { key: 'Other',           colour: '#555555', priority: 0 },
+  { key: 'Appearance',      colour: '#555555', priority: 0 },
 ];
 const ROLE_MAP    = Object.fromEntries(ROLES.map(r => [r.key, r]));
 const activeRoles = new Set(ROLES.map(r => r.key));
 
 function classifyRole(roleStr, type) {
   const r = (roleStr || '').toLowerCase().trim();
-  // Songwriter first — before any catch-all checks
-  if (r.includes('written') || r.includes('writer')   ||
-      r.includes('composer')|| r.includes('composed') ||
-      r.includes('lyrics')  || r.includes('lyricist') ||
-      r.includes('music by')|| r.includes('words')    ||
-      r.includes('text by') || r.includes('author'))
-    return 'Songwriter';
-  // Producer
-  if (r.includes('producer') || r.includes('produced'))
-    return 'Producer';
-  // Main / Featured
-  if (r === 'main' || r === 'trackappearance' ||
-      r === 'appearance' || r === 'unofficialrelease')
-    return 'Main / Featured';
-  if (r.includes('feat') || r.includes('featuring') ||
-      r.includes('vocal') || r.includes('voice') || r.includes('singer'))
-    return 'Main / Featured';
-  if (type === 'main') return 'Main / Featured';
-  return 'Other';
+  if (r === 'producer' || r.includes('produced')) return 'Producer';
+  if (r === 'main' || r === 'unofficialrelease')  return 'Main / Featured';
+  if (type === 'main')                             return 'Main / Featured';
+  return 'Appearance'; // Appearance, TrackAppearance, Mixed by, etc.
 }
 
 const ZOOM_STEPS = [0.4, 0.6, 1, 1.5, 2.5, 4, 7, 12, 20];
@@ -332,12 +329,9 @@ async function fetchAndRender(id, name) {
   document.getElementById('loading').style.display = 'none';
 
   // Map
-  const rolesSeen = {};
   const mapped = raw
     .filter(r => r.year && parseInt(r.year) > 1900 && parseInt(r.year) <= new Date().getFullYear()+1)
-    .map(r => {
-      rolesSeen[r.role || 'undefined'] = (rolesSeen[r.role || 'undefined'] || 0) + 1;
-      return ({
+    .map(r => ({
       id:    r.id,
       title: r.title || 'Unknown',
       year:  parseInt(r.year),
@@ -346,8 +340,8 @@ async function fetchAndRender(id, name) {
       want:  r.stats?.community?.in_wantlist   || 0,
       have:  r.stats?.community?.in_collection || 0,
       url:   buildUrl(r),
-    })});
-  console.log('ROLES SEEN FROM DISCOGS:', JSON.stringify(rolesSeen));
+      rawRole: r.role || '', // keep original for enrichment later
+    }));
 
   // Deduplicate — highest priority wins
   const byId = {};
@@ -363,17 +357,24 @@ async function fetchAndRender(id, name) {
   _maxYear = Math.max(...years);
 
   // Stats
-  const mainC   = _withYear.filter(r => r.role === 'Main / Featured').length;
-  const writerC = _withYear.filter(r => r.role === 'Songwriter').length;
+  const mainC       = _withYear.filter(r => r.role === 'Main / Featured').length;
+  const producerC   = _withYear.filter(r => r.role === 'Producer').length;
+  const appearanceC = _withYear.filter(r => r.role === 'Appearance').length;
   const dCounts = {};
   _withYear.forEach(r => { const d = Math.floor(r.year/10)*10; dCounts[d]=(dCounts[d]||0)+1; });
   const peak = Object.entries(dCounts).sort((a,b)=>b[1]-a[1])[0]?.[0];
-  document.getElementById('stat-total').textContent  = _withYear.length;
-  document.getElementById('stat-span').textContent   = `${_minYear}–${_maxYear}`;
-  document.getElementById('stat-peak').textContent   = peak ? peak+'s' : '—';
-  document.getElementById('stat-main').textContent   = mainC;
-  document.getElementById('stat-writer').textContent = writerC;
-  document.getElementById('stats-row').style.display = 'flex';
+  document.getElementById('stat-total').textContent      = _withYear.length;
+  document.getElementById('stat-span').textContent       = `${_minYear}–${_maxYear}`;
+  document.getElementById('stat-peak').textContent       = peak ? peak+'s' : '—';
+  document.getElementById('stat-main').textContent       = mainC;
+  document.getElementById('stat-producer').textContent   = producerC;
+  document.getElementById('stat-appearance').textContent = appearanceC;
+  document.getElementById('stats-row').style.display     = 'flex';
+
+  // Show enrich bar if there are appearances worth checking
+  if (appearanceC > 0) {
+    document.getElementById('enrich-bar').style.display = 'flex';
+  }
 
   // Legend
   const legendEl = document.getElementById('legend');
@@ -452,6 +453,85 @@ async function fetchAndRender(id, name) {
   document.getElementById('river-outer').style.display  = 'block';
   document.getElementById('data-note').style.display    = 'block';
   drawRiver();
+}
+
+async function enrichSongwriter() {
+  const btn      = document.getElementById('enrich-btn');
+  const statusEl = document.getElementById('enrich-status');
+  btn.disabled   = true;
+  btn.textContent = 'Fetching…';
+
+  // Take top 50 appearances by want count
+  const appearances = _withYear
+    .filter(r => r.role === 'Appearance')
+    .sort((a, b) => b.want - a.want)
+    .slice(0, 50);
+
+  const SONGWRITER_KEYWORDS = [
+    'written','writer','composer','composed','lyrics',
+    'lyricist','music by','words','text by','author'
+  ];
+
+  let enriched = 0;
+
+  for (let i = 0; i < appearances.length; i++) {
+    const r = appearances[i];
+    statusEl.textContent = `Checking ${i+1} of ${appearances.length}…`;
+
+    try {
+      // Extract release ID from URL
+      const match = r.url.match(/\/(release|master)\/(\d+)/);
+      if (!match) continue;
+      const type = match[1], rid = match[2];
+      const endpoint = type === 'master'
+        ? `/api/release?type=master&id=${rid}`
+        : `/api/release?type=release&id=${rid}`;
+
+      const resp = await fetch(endpoint);
+      if (resp.status === 429) {
+        statusEl.textContent = 'Rate limited — waiting 12s…';
+        await sleep(12000);
+        i--; continue;
+      }
+      if (!resp.ok) { await sleep(500); continue; }
+
+      const data = await resp.json();
+
+      // Check extraartists for songwriter credits
+      const extras = data.extraartists || [];
+      const isSongwriter = extras.some(a => {
+        const role = (a.role || '').toLowerCase();
+        return SONGWRITER_KEYWORDS.some(k => role.includes(k));
+      });
+
+      if (isSongwriter) {
+        // Update role in _withYear
+        const entry = _withYear.find(w => w.id === r.id);
+        if (entry) { entry.role = 'Songwriter'; enriched++; }
+      }
+
+    } catch(e) { /* skip */ }
+
+    await sleep(1100);
+    // Redraw every 5 releases so user sees progress
+    if (i % 5 === 4) drawRiver();
+  }
+
+  drawRiver();
+
+  // Update legend counts
+  document.querySelectorAll('.legend-item').forEach(el => {
+    const role  = el.dataset.role;
+    const count = _withYear.filter(r => r.role === role).length;
+    el.querySelector('span').textContent = count;
+  });
+
+  btn.textContent = 'Done';
+  statusEl.textContent = `${enriched} songwriter credits revealed`;
+
+  // Update stat
+  document.getElementById('stat-appearance').textContent =
+    _withYear.filter(r => r.role === 'Appearance').length;
 }
 
 function drawRiver() {
