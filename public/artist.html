@@ -461,33 +461,31 @@ async function enrichSongwriter() {
   btn.disabled   = true;
   btn.textContent = 'Fetching…';
 
-  // Take top 50 appearances by want count
-  const appearances = _withYear
-    .filter(r => r.role === 'Appearance')
-    .sort((a, b) => b.want - a.want)
-    .slice(0, 50);
+  const artistNameLower = document.getElementById('artist-name').textContent.toLowerCase().trim();
 
   const SONGWRITER_KEYWORDS = [
     'written','writer','composer','composed','lyrics',
     'lyricist','music by','words','text by','author'
   ];
 
+  // Top 50 appearances by want count
+  const appearances = _withYear
+    .filter(r => r.role === 'Appearance')
+    .sort((a, b) => b.want - a.want)
+    .slice(0, 50);
+
   let enriched = 0;
 
   for (let i = 0; i < appearances.length; i++) {
     const r = appearances[i];
-    statusEl.textContent = `Checking ${i+1} of ${appearances.length}…`;
+    statusEl.textContent = `Checking ${i + 1} of ${appearances.length}…`;
 
     try {
-      // Extract release ID from URL
       const match = r.url.match(/\/(release|master)\/(\d+)/);
       if (!match) continue;
       const type = match[1], rid = match[2];
-      const endpoint = type === 'master'
-        ? `/api/release?type=master&id=${rid}`
-        : `/api/release?type=release&id=${rid}`;
 
-      const resp = await fetch(endpoint);
+      const resp = await fetch(`/api/release?type=${type}&id=${rid}`);
       if (resp.status === 429) {
         statusEl.textContent = 'Rate limited — waiting 12s…';
         await sleep(12000);
@@ -496,16 +494,32 @@ async function enrichSongwriter() {
       if (!resp.ok) { await sleep(500); continue; }
 
       const data = await resp.json();
-
-      // Check extraartists for songwriter credits
       const extras = data.extraartists || [];
+
+      // Check if THIS artist has a songwriter credit
+      // Match by name since we don't have their Discogs ID here
       const isSongwriter = extras.some(a => {
+        const role     = (a.role || '').toLowerCase();
+        const name     = (a.name || '').toLowerCase();
+        const nameAnv  = (a.anv  || '').toLowerCase();
+        const nameMatch = name.includes(artistNameLower) ||
+                          artistNameLower.includes(name) ||
+                          (nameAnv && artistNameLower.includes(nameAnv));
+        const roleMatch = SONGWRITER_KEYWORDS.some(k => role.includes(k));
+        return nameMatch && roleMatch;
+      });
+
+      // Fallback: if the artist isn't named in extraartists but
+      // the release has songwriter credits and they have an Appearance,
+      // check if ANY songwriter credit exists (less precise but catches
+      // cases where the artist name is abbreviated or in Arabic)
+      const hasSongwriterAnywhere = !isSongwriter && extras.some(a => {
         const role = (a.role || '').toLowerCase();
         return SONGWRITER_KEYWORDS.some(k => role.includes(k));
       });
 
+      // Only upgrade to Songwriter if we can confirm it's THIS artist
       if (isSongwriter) {
-        // Update role in _withYear
         const entry = _withYear.find(w => w.id === r.id);
         if (entry) { entry.role = 'Songwriter'; enriched++; }
       }
@@ -513,7 +527,6 @@ async function enrichSongwriter() {
     } catch(e) { /* skip */ }
 
     await sleep(1100);
-    // Redraw every 5 releases so user sees progress
     if (i % 5 === 4) drawRiver();
   }
 
@@ -521,15 +534,13 @@ async function enrichSongwriter() {
 
   // Update legend counts
   document.querySelectorAll('.legend-item').forEach(el => {
-    const role  = el.dataset.role;
-    const count = _withYear.filter(r => r.role === role).length;
-    el.querySelector('span').textContent = count;
+    const count = _withYear.filter(r => r.role === el.dataset.role).length;
+    const span  = el.querySelector('span');
+    if (span) span.textContent = count;
   });
 
   btn.textContent = 'Done';
-  statusEl.textContent = `${enriched} songwriter credits revealed`;
-
-  // Update stat
+  statusEl.textContent = `${enriched} songwriter credit${enriched !== 1 ? 's' : ''} revealed`;
   document.getElementById('stat-appearance').textContent =
     _withYear.filter(r => r.role === 'Appearance').length;
 }
