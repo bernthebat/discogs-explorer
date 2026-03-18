@@ -332,9 +332,12 @@ async function fetchAndRender(id, name) {
   document.getElementById('loading').style.display = 'none';
 
   // Map
+  const rolesSeen = {};
   const mapped = raw
     .filter(r => r.year && parseInt(r.year) > 1900 && parseInt(r.year) <= new Date().getFullYear()+1)
-    .map(r => ({
+    .map(r => {
+      rolesSeen[r.role || 'undefined'] = (rolesSeen[r.role || 'undefined'] || 0) + 1;
+      return ({
       id:    r.id,
       title: r.title || 'Unknown',
       year:  parseInt(r.year),
@@ -343,7 +346,8 @@ async function fetchAndRender(id, name) {
       want:  r.stats?.community?.in_wantlist   || 0,
       have:  r.stats?.community?.in_collection || 0,
       url:   buildUrl(r),
-    }));
+    })});
+  console.log('ROLES SEEN FROM DISCOGS:', JSON.stringify(rolesSeen));
 
   // Deduplicate — highest priority wins
   const byId = {};
@@ -536,6 +540,7 @@ function drawRiver() {
     glow.setAttribute('cx',x); glow.setAttribute('cy',bestY);
     glow.setAttribute('r', radius+5);
     glow.setAttribute('fill',colour); glow.setAttribute('opacity','0.07');
+    glow.setAttribute('pointer-events','none');
     svg.appendChild(glow);
 
     // Dot
