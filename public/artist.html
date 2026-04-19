@@ -114,18 +114,137 @@
   .tt-title { font-family: 'Playfair Display', serif; font-size: 14px; color: var(--ink); margin-bottom: 4px; line-height: 1.3; }
   .tt-role  { display: inline-block; font-size: 10px; padding: 2px 7px; border-radius: 2px; margin-bottom: 5px; }
   .tt-meta  { font-size: 11px; color: var(--ink-dim); line-height: 1.7; }
-  .data-note { font-size: 11px; color: var(--ink-dim); font-style: italic; margin-top: 10px; }
+  .search-landing {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 20px;
+    text-align: center;
+    gap: 24px;
+  }
+
+  .search-landing h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 28px;
+    font-weight: 400;
+    font-style: italic;
+    color: var(--ink-mid);
+  }
+
+  .search-landing .tagline {
+    font-size: 12px;
+    color: var(--ink-dim);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    max-width: 400px;
+    line-height: 1.8;
+  }
+
+  .artist-search-form {
+    display: flex;
+    gap: 0;
+    width: 100%;
+    max-width: 480px;
+  }
+
+  .artist-search-input {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-right: none;
+    color: var(--ink);
+    font-family: 'Lato', sans-serif;
+    font-weight: 300;
+    font-size: 14px;
+    padding: 12px 18px;
+    outline: none;
+    transition: border-color 0.2s;
+    border-radius: 2px 0 0 2px;
+  }
+
+  .artist-search-input:focus { border-color: var(--gold-dim); }
+  .artist-search-input::placeholder { color: var(--ink-dim); }
+
+  .artist-search-btn {
+    background: var(--gold);
+    color: var(--bg);
+    border: none;
+    font-family: 'Lato', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    padding: 12px 22px;
+    cursor: pointer;
+    border-radius: 0 2px 2px 0;
+    transition: background 0.2s;
+    white-space: nowrap;
+  }
+
+  .artist-search-btn:hover { background: #e0bc6a; }
+
+  .search-examples {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 480px;
+  }
+
+  .example-chip {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--ink-dim);
+    font-size: 11px;
+    padding: 4px 12px;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .example-chip:hover {
+    border-color: var(--gold-dim);
+    color: var(--ink-mid);
+  }
 </style>
 </head>
 <body>
 <header>
   <div class="header-left">
-    <h1 id="artist-name">Loading…</h1>
+    <h1 id="artist-name">Career River</h1>
     <div class="artist-meta" id="artist-meta"></div>
   </div>
-  <a href="javascript:history.back()" class="nav-link">← Back</a>
+  <a href="javascript:history.back()" class="nav-link" id="back-link">← Back</a>
 </header>
 <main>
+
+  <!-- Search landing — shown when no artist param -->
+  <div class="search-landing" id="search-landing">
+    <h2>Explore any artist's career</h2>
+    <div class="tagline">Search any artist, musician, composer or producer from anywhere in the world</div>
+    <div class="artist-search-form">
+      <input
+        class="artist-search-input"
+        id="landing-input"
+        type="text"
+        placeholder="e.g. Fairuz, Bob Dylan, Fela Kuti…"
+        autocomplete="off" spellcheck="false"
+      >
+      <button class="artist-search-btn" onclick="launchSearch()">Explore</button>
+    </div>
+    <div class="search-examples">
+      <div class="example-chip" onclick="launchSearchFor('Fairuz')">Fairuz</div>
+      <div class="example-chip" onclick="launchSearchFor('Ziad Rahbani')">Ziad Rahbani</div>
+      <div class="example-chip" onclick="launchSearchFor('Fela Kuti')">Fela Kuti</div>
+      <div class="example-chip" onclick="launchSearchFor('Oum Kalthoum')">Oum Kalthoum</div>
+      <div class="example-chip" onclick="launchSearchFor('Bob Dylan')">Bob Dylan</div>
+      <div class="example-chip" onclick="launchSearchFor('Caetano Veloso')">Caetano Veloso</div>
+      <div class="example-chip" onclick="launchSearchFor('Mahmoud Ahmed')">Mahmoud Ahmed</div>
+      <div class="example-chip" onclick="launchSearchFor('Mulatu Astatke')">Mulatu Astatke</div>
+    </div>
+  </div>
+
   <div id="error-panel"></div>
   <div id="pick-panel">
     <h3>Multiple artists found — which one?</h3>
@@ -230,11 +349,31 @@ function buildUrl(r) {
 const params     = new URLSearchParams(window.location.search);
 const artistName = params.get('artist') || '';
 const artistId   = params.get('id')     || '';
-document.getElementById('artist-name').textContent = artistName || 'Artist';
-document.title = `${artistName} — Career River`;
 
-(async function boot() {
-  if (!artistName && !artistId) { showError('No artist specified.'); return; }
+// If no artist specified, show search landing
+if (!artistName && !artistId) {
+  document.getElementById('artist-name').textContent = 'Career River';
+  document.getElementById('loading').style.display   = 'none';
+  document.getElementById('search-landing').style.display = 'flex';
+  document.getElementById('landing-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') launchSearch();
+  });
+} else {
+  document.getElementById('artist-name').textContent = artistName || 'Artist';
+  document.title = `${artistName} — Career River`;
+  boot();
+}
+
+function launchSearch() {
+  const val = document.getElementById('landing-input').value.trim();
+  if (val) launchSearchFor(val);
+}
+
+function launchSearchFor(name) {
+  window.location.href = `/artist.html?artist=${encodeURIComponent(name)}`;
+}
+
+async function boot() {
   document.getElementById('loading-title').textContent = `Searching for ${artistName}…`;
   setLoading(5, '');
 
@@ -266,7 +405,7 @@ document.title = `${artistName} — Career River`;
     } catch(e) { showError(`Search error: ${e.message}`); return; }
   }
   await fetchAndRender(resolvedId, resolvedName);
-})();
+}
 
 function showPicker(results, onPick) {
   const list = document.getElementById('pick-list');
