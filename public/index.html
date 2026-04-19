@@ -430,11 +430,23 @@
 <body>
 
 <header>
-  <div class="header-top">
-    <h1 id="header-title">Discogs Explorer</h1>
+  <div>
+    <div class="header-top">
+      <h1 id="header-title">Discogs Explorer</h1>
+    </div>
+    <div class="subtitle">Want / Have Ratio by Country</div>
+    <a href="/scene.html" style="display:inline-block;margin-top:8px;font-size:11px;color:var(--ink-dim);text-decoration:none;text-transform:uppercase;letter-spacing:2px;border-bottom:1px solid var(--border);padding-bottom:2px;">Scene Archaeologist →</a>
   </div>
-  <div class="subtitle">Want / Have Ratio by Country</div>
-  <a href="/scene.html" style="display:inline-block;margin-top:8px;font-size:11px;color:var(--ink-dim);text-decoration:none;text-transform:uppercase;letter-spacing:2px;border-bottom:1px solid var(--border);padding-bottom:2px;">Scene Archaeologist →</a>
+  <div style="display:flex;align-items:flex-end;">
+    <input
+      type="text"
+      id="header-artist-input"
+      placeholder="Search any artist →"
+      autocomplete="off"
+      spellcheck="false"
+      style="background:var(--surface);border:1px solid var(--border);color:var(--ink);font-family:'Lato',sans-serif;font-weight:300;font-size:12px;padding:8px 14px;outline:none;border-radius:2px;width:220px;"
+    >
+  </div>
 </header>
 
 <main>
@@ -792,6 +804,13 @@ function escHtml(str) {
 
 document.getElementById('country-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') startFetch();
+});
+
+document.getElementById('header-artist-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    const val = e.target.value.trim();
+    if (val) window.open(`/artist.html?artist=${encodeURIComponent(val)}`, '_blank');
+  }
 });
 </script>
 </body>
