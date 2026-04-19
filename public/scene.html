@@ -34,7 +34,36 @@
   header {
     padding: 52px 48px 28px;
     border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+    flex-wrap: wrap;
   }
+
+  .header-search {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    flex-shrink: 0;
+  }
+
+  .header-artist-input {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--ink);
+    font-family: 'Lato', sans-serif;
+    font-weight: 300;
+    font-size: 12px;
+    padding: 8px 14px;
+    outline: none;
+    transition: border-color 0.2s;
+    border-radius: 2px;
+    width: 220px;
+  }
+
+  .header-artist-input:focus { border-color: var(--border-focus); }
+  .header-artist-input::placeholder { color: var(--ink-dim); }
 
   h1 {
     font-family: 'Playfair Display', serif;
@@ -534,9 +563,21 @@
 <body>
 
 <header>
-  <h1>Scene Archaeologist</h1>
-  <div class="subtitle">Powered by Discogs · Unearth a music scene</div>
-  <a href="/index.html" class="nav-link">← Back to Ratio Explorer</a>
+  <div>
+    <h1>Scene Archaeologist</h1>
+    <div class="subtitle">Powered by Discogs · Unearth a music scene</div>
+    <a href="/index.html" class="nav-link">← Back to Ratio Explorer</a>
+  </div>
+  <div class="header-search">
+    <input
+      type="text"
+      id="header-artist-input"
+      class="header-artist-input"
+      placeholder="Search any artist →"
+      autocomplete="off"
+      spellcheck="false"
+    >
+  </div>
 </header>
 
 <main>
@@ -1034,6 +1075,14 @@ async function buildPlaylist() {
 
 document.getElementById('country-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') startDig();
+});
+
+// Header artist search
+document.getElementById('header-artist-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    const val = document.getElementById('header-artist-input').value.trim();
+    if (val) window.open(`/artist.html?artist=${encodeURIComponent(val)}`, '_blank');
+  }
 });
 </script>
 </body>
