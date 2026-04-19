@@ -207,6 +207,50 @@
     border-color: var(--gold-dim);
     color: var(--ink-mid);
   }
+
+  /* Artist search results panel */
+  #results-panel { display: none; margin-bottom: 32px; }
+
+  .results-search-bar { display: flex; gap: 0; margin-bottom: 20px; max-width: 480px; }
+  .results-search-bar input {
+    flex: 1; background: var(--surface2); border: 1px solid var(--border); border-right: none;
+    color: var(--ink); font-family: 'Lato', sans-serif; font-weight: 300; font-size: 13px;
+    padding: 10px 14px; outline: none; border-radius: 2px 0 0 2px; transition: border-color 0.2s;
+  }
+  .results-search-bar input:focus { border-color: var(--gold-dim); }
+  .results-search-bar button {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--ink-mid);
+    font-family: 'Lato', sans-serif; font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1.5px; padding: 10px 16px;
+    cursor: pointer; border-radius: 0 2px 2px 0; white-space: nowrap; transition: background 0.15s;
+  }
+  .results-search-bar button:hover { background: var(--border); }
+  .results-label { font-size: 10px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 12px; }
+  .artist-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+  .artist-card {
+    background: var(--surface); border: 1px solid var(--border); padding: 16px;
+    cursor: pointer; transition: border-color 0.15s, background 0.15s;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .artist-card:hover { border-color: var(--gold-dim); background: var(--surface2); }
+  .artist-card-top { display: flex; gap: 12px; align-items: flex-start; }
+  .artist-card-thumb {
+    width: 52px; height: 52px; object-fit: cover;
+    background: var(--surface2); flex-shrink: 0; border-radius: 1px;
+  }
+  .artist-card-thumb-placeholder {
+    width: 52px; height: 52px; background: var(--surface2); border: 1px solid var(--border);
+    flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    font-size: 20px; color: var(--ink-dim);
+  }
+  .artist-card-name { font-family: 'Playfair Display', serif; font-size: 15px; color: var(--ink); line-height: 1.3; margin-bottom: 2px; }
+  .artist-card-meta { font-size: 10px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 1px; }
+  .artist-card-profile {
+    font-size: 11px; color: var(--ink-dim); line-height: 1.6;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .artist-card-cta { font-size: 10px; color: var(--gold-dim); text-transform: uppercase; letter-spacing: 1.5px; margin-top: auto; }
+  .artist-card:hover .artist-card-cta { color: var(--gold); }
 </style>
 </head>
 <body>
@@ -243,6 +287,16 @@
       <div class="example-chip" onclick="launchSearchFor('Mahmoud Ahmed')">Mahmoud Ahmed</div>
       <div class="example-chip" onclick="launchSearchFor('Mulatu Astatke')">Mulatu Astatke</div>
     </div>
+  </div>
+
+  <!-- Search results — shown after searching, before river loads -->
+  <div id="results-panel">
+    <div class="results-search-bar">
+      <input type="text" id="results-input" autocomplete="off" spellcheck="false" placeholder="Search again…">
+      <button onclick="searchAgain()">Search</button>
+    </div>
+    <div class="results-label" id="results-label"></div>
+    <div class="artist-cards" id="artist-cards"></div>
   </div>
 
   <div id="error-panel"></div>
@@ -350,79 +404,113 @@ const params     = new URLSearchParams(window.location.search);
 const artistName = params.get('artist') || '';
 const artistId   = params.get('id')     || '';
 
-// If no artist specified, show search landing
+// No artist specified — show search landing
 if (!artistName && !artistId) {
-  document.getElementById('artist-name').textContent = 'Career River';
-  document.getElementById('loading').style.display   = 'none';
+  document.getElementById('artist-name').textContent  = 'Career River';
+  document.getElementById('loading').style.display    = 'none';
   document.getElementById('search-landing').style.display = 'flex';
   document.getElementById('landing-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') launchSearch();
   });
-} else {
+} else if (artistId) {
+  // ID provided directly — skip to river
   document.getElementById('artist-name').textContent = artistName || 'Artist';
   document.title = `${artistName} — Career River`;
-  boot();
+  fetchAndRender(artistId, artistName);
+} else {
+  // Name provided — search first, show confirmation
+  document.getElementById('artist-name').textContent = 'Career River';
+  document.getElementById('loading-title').textContent = `Searching for "${artistName}"…`;
+  setLoading(5, '');
+  searchAndShowResults(artistName);
 }
 
 function launchSearch() {
   const val = document.getElementById('landing-input').value.trim();
-  if (val) launchSearchFor(val);
+  if (val) window.location.href = `/artist.html?artist=${encodeURIComponent(val)}`;
 }
 
 function launchSearchFor(name) {
   window.location.href = `/artist.html?artist=${encodeURIComponent(name)}`;
 }
 
-async function boot() {
-  document.getElementById('loading-title').textContent = `Searching for ${artistName}…`;
-  setLoading(5, '');
-
-  let resolvedId = artistId, resolvedName = artistName;
-
-  if (!resolvedId) {
-    try {
-      const resp = await fetch(`/api/artist?action=search&name=${encodeURIComponent(artistName)}`);
-      if (!resp.ok) { showError(`Search failed: ${resp.status}`); return; }
-      const data = await resp.json();
-      if (data.error) { showError(data.error); return; }
-      const results = (data.results || []).filter(r => r.type === 'artist');
-      if (results.length === 0) { showError(`No artist found for "${artistName}".`); return; }
-      const top = results[0];
-      const topL = (top.title||'').toLowerCase().trim();
-      const qL   = artistName.toLowerCase().trim();
-      const auto  = topL === qL || topL.startsWith(qL) || qL.startsWith(topL);
-      if (auto || results.length === 1) {
-        resolvedId = top.id; resolvedName = top.title;
-      } else {
-        document.getElementById('loading').style.display = 'none';
-        showPicker(results, chosen => {
-          document.getElementById('pick-panel').style.display = 'none';
-          document.getElementById('loading').style.display = 'flex';
-          fetchAndRender(chosen.id, chosen.title);
-        });
-        return;
-      }
-    } catch(e) { showError(`Search error: ${e.message}`); return; }
-  }
-  await fetchAndRender(resolvedId, resolvedName);
+function searchAgain() {
+  const val = document.getElementById('results-input').value.trim();
+  if (val) window.location.href = `/artist.html?artist=${encodeURIComponent(val)}`;
 }
 
-function showPicker(results, onPick) {
-  const list = document.getElementById('pick-list');
-  list.innerHTML = '';
-  results.slice(0,8).forEach(r => {
-    const row = document.createElement('div');
-    row.className = 'pick-row';
-    row.innerHTML = `
-      ${r.thumb ? `<img class="pick-thumb" src="${r.thumb}" alt="">` : '<div class="pick-thumb"></div>'}
-      <div>
-        <div class="pick-name">${esc(r.title)}</div>
-        <div class="pick-detail">${esc(r.type||'')}${r.year?' · '+r.year:''}</div>
-      </div>`;
-    row.onclick = () => onPick(r);
-    list.appendChild(row);
+async function searchAndShowResults(name) {
+  document.getElementById('loading').style.display = 'flex';
+  setLoading(20, `Searching for "${name}"…`);
+
+  try {
+    const resp = await fetch(`/api/artist?action=search&name=${encodeURIComponent(name)}`);
+    if (!resp.ok) { showError(`Search failed: ${resp.status}`); return; }
+    const data = await resp.json();
+    if (data.error) { showError(data.error); return; }
+
+    const results = (data.results || []).filter(r => r.type === 'artist');
+    if (results.length === 0) {
+      showError(`No artists found for "${name}". Try a different spelling.`);
+      return;
+    }
+
+    document.getElementById('loading').style.display = 'none';
+    showResultsPanel(name, results);
+
+  } catch(e) {
+    showError(`Search error: ${e.message}`);
+  }
+}
+
+function showResultsPanel(query, results) {
+  document.getElementById('results-input').value = query;
+  document.getElementById('results-label').textContent =
+    `${results.length} artist${results.length !== 1 ? 's' : ''} found for "${query}" — click one to explore`;
+
+  const cards = document.getElementById('artist-cards');
+  cards.innerHTML = '';
+
+  results.slice(0, 8).forEach(r => {
+    const card = document.createElement('div');
+    card.className = 'artist-card';
+
+    const thumb = r.thumb
+      ? `<img class="artist-card-thumb" src="${r.thumb}" alt="">`
+      : `<div class="artist-card-thumb-placeholder">♪</div>`;
+
+    // Clean profile text — strip Discogs markup
+    const profileClean = (r.profile || '').replace(/\[.*?\]/g, '').trim();
+
+    card.innerHTML = `
+      <div class="artist-card-top">
+        ${thumb}
+        <div>
+          <div class="artist-card-name">${esc(r.title)}</div>
+          <div class="artist-card-meta">${r.type || 'Artist'}${r.year ? ' · est. ' + r.year : ''}</div>
+        </div>
+      </div>
+      ${profileClean ? `<div class="artist-card-profile">${esc(profileClean)}</div>` : ''}
+      <div class="artist-card-cta">View Career River →</div>
+    `;
+
+    card.onclick = () => {
+      document.getElementById('results-panel').style.display = 'none';
+      document.getElementById('artist-name').textContent = r.title;
+      document.title = `${r.title} — Career River`;
+      document.getElementById('loading').style.display = 'flex';
+      document.getElementById('loading-title').textContent = `Loading ${r.title}…`;
+      setLoading(5, '');
+      fetchAndRender(r.id, r.title);
+    };
+
+    cards.appendChild(card);
   });
-  document.getElementById('pick-panel').style.display = 'block';
+
+  document.getElementById('results-panel').style.display = 'block';
+  document.getElementById('results-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') searchAgain();
+  });
 }
 
 async function fetchAndRender(id, name) {
