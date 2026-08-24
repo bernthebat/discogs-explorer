@@ -429,27 +429,309 @@
 </head>
 <body>
 
-<header>
-  <div>
-    <div class="header-top">
-      <h1 id="header-title">Discogs Explorer</h1>
-    </div>
-    <div class="subtitle">Want / Have Ratio by Country</div>
-    <a href="/scene.html" style="display:inline-block;margin-top:8px;font-size:11px;color:var(--ink-dim);text-decoration:none;text-transform:uppercase;letter-spacing:2px;border-bottom:1px solid var(--border);padding-bottom:2px;">Scene Archaeologist →</a>
-  </div>
-  <div style="display:flex;align-items:flex-end;">
+<style>
+  /* Homepage additions */
+  .site-header {
+    padding: 40px 48px 32px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+
+  .site-logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--ink);
+    letter-spacing: -0.3px;
+  }
+
+  .site-logo span {
+    color: var(--gold);
+    font-style: italic;
+  }
+
+  .header-artist-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0;
+  }
+
+  .header-artist-wrap input {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-right: none;
+    color: var(--ink);
+    font-family: 'Lato', sans-serif;
+    font-weight: 300;
+    font-size: 12px;
+    padding: 8px 14px;
+    outline: none;
+    border-radius: 2px 0 0 2px;
+    width: 200px;
+    transition: border-color 0.2s;
+  }
+
+  .header-artist-wrap input:focus { border-color: var(--border-focus); }
+  .header-artist-wrap input::placeholder { color: var(--ink-dim); }
+
+  .header-artist-wrap button {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--ink-dim);
+    font-family: 'Lato', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    padding: 8px 12px;
+    cursor: pointer;
+    border-radius: 0 2px 2px 0;
+    transition: background 0.15s;
+    white-space: nowrap;
+  }
+
+  .header-artist-wrap button:hover { background: var(--border); color: var(--ink-mid); }
+
+  /* Hero */
+  .hero {
+    padding: 64px 48px 48px;
+    border-bottom: 1px solid var(--border);
+    max-width: 720px;
+  }
+
+  .hero-eyebrow {
+    font-size: 10px;
+    color: var(--ink-dim);
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    margin-bottom: 16px;
+  }
+
+  .hero h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 48px;
+    font-weight: 700;
+    color: var(--ink);
+    line-height: 1.1;
+    letter-spacing: -1px;
+    margin-bottom: 20px;
+  }
+
+  .hero h1 em {
+    font-style: italic;
+    color: var(--gold);
+  }
+
+  .hero-desc {
+    font-size: 15px;
+    color: var(--ink-mid);
+    font-weight: 300;
+    line-height: 1.8;
+    max-width: 560px;
+  }
+
+  /* Tool cards */
+  .tools-section {
+    padding: 48px 48px 0;
+  }
+
+  .tools-label {
+    font-size: 10px;
+    color: var(--ink-dim);
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    margin-bottom: 20px;
+  }
+
+  .tool-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 48px;
+  }
+
+  @media (max-width: 800px) {
+    .tool-cards { grid-template-columns: 1fr; }
+    .hero { padding: 40px 24px 32px; }
+    .hero h1 { font-size: 34px; }
+    .tools-section { padding: 32px 24px 0; }
+    .site-header { padding: 28px 24px; }
+    .ratio-main { padding: 32px 24px 60px; }
+  }
+
+  .tool-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 28px 28px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.2s, background 0.2s;
+    position: relative;
+  }
+
+  .tool-card:hover {
+    border-color: var(--gold);
+    background: var(--surface2);
+  }
+
+  .tool-card-number {
+    font-family: 'Playfair Display', serif;
+    font-size: 32px;
+    font-style: italic;
+    color: var(--border);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .tool-card-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--ink);
+    line-height: 1.2;
+  }
+
+  .tool-card-tag {
+    display: inline-block;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--gold);
+    border: 1px solid var(--border-focus);
+    padding: 2px 8px;
+    border-radius: 1px;
+    width: fit-content;
+    margin-bottom: 4px;
+  }
+
+  .tool-card-desc {
+    font-size: 13px;
+    color: var(--ink-mid);
+    font-weight: 300;
+    line-height: 1.7;
+    flex: 1;
+  }
+
+  .tool-card-what {
+    font-size: 11px;
+    color: var(--ink-dim);
+    font-style: italic;
+    line-height: 1.6;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+  }
+
+  .tool-card-cta {
+    font-size: 11px;
+    color: var(--gold);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-top: 4px;
+  }
+
+  /* Ratio section divider */
+  .ratio-divider {
+    padding: 0 48px;
+    margin-bottom: 0;
+  }
+
+  .ratio-divider-inner {
+    border-top: 1px solid var(--border);
+    padding-top: 40px;
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+  }
+
+  .ratio-divider-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  .ratio-divider-sub {
+    font-size: 11px;
+    color: var(--ink-dim);
+    font-style: italic;
+  }
+
+  .ratio-main {
+    padding: 0 48px 80px;
+  }
+</style>
+
+<header class="site-header">
+  <div class="site-logo">Discogs <em>Explorer</em></div>
+  <div class="header-artist-wrap">
     <input
       type="text"
       id="header-artist-input"
-      placeholder="Search any artist →"
+      placeholder="Search any artist…"
       autocomplete="off"
       spellcheck="false"
-      style="background:var(--surface);border:1px solid var(--border);color:var(--ink);font-family:'Lato',sans-serif;font-weight:300;font-size:12px;padding:8px 14px;outline:none;border-radius:2px;width:220px;"
     >
+    <button onclick="goToArtist()">Go →</button>
   </div>
 </header>
 
-<main>
+<div class="hero">
+  <div class="hero-eyebrow">Powered by Discogs</div>
+  <h1>Dig deeper into<br>the <em>world's music</em></h1>
+  <p class="hero-desc">Three tools for collectors, researchers and curious listeners — discover the most coveted records from any country, unearth a local music scene, or trace any artist's full career.</p>
+</div>
+
+<div class="tools-section">
+  <div class="tools-label">What you can explore</div>
+  <div class="tool-cards">
+
+    <a class="tool-card" href="#ratio-section">
+      <div class="tool-card-number">01</div>
+      <div class="tool-card-tag">On this page</div>
+      <div class="tool-card-title">Want / Have Ratio</div>
+      <div class="tool-card-desc">Find the most sought-after records from any country in the world, filtered by genre and style. Ranked by raw demand or our Holy Grail score.</div>
+      <div class="tool-card-what">You'll see: a ranked list of releases collectors most want but can't find — sorted by how lopsided desire is vs supply.</div>
+      <div class="tool-card-cta">Explore below ↓</div>
+    </a>
+
+    <a class="tool-card" href="/scene.html">
+      <div class="tool-card-number">02</div>
+      <div class="tool-card-tag">Scene Archaeologist</div>
+      <div class="tool-card-title">Unearth a Scene</div>
+      <div class="tool-card-desc">Pick any country and decade. Get a full portrait of that local music scene — its labels, artists, genres, release timeline, and most coveted records.</div>
+      <div class="tool-card-what">You'll see: a breakdown of the scene's activity year by year, who dominated it, and a YouTube playlist of its most wanted releases.</div>
+      <div class="tool-card-cta">Open Scene Archaeologist →</div>
+    </a>
+
+    <a class="tool-card" href="/artist.html">
+      <div class="tool-card-number">03</div>
+      <div class="tool-card-tag">Career River</div>
+      <div class="tool-card-title">Trace an Artist</div>
+      <div class="tool-card-desc">Search any artist, musician, composer or producer from anywhere in the world. Explore their full career as an interactive visual timeline.</div>
+      <div class="tool-card-what">You'll see: every release they touched, colour-coded by role (main artist, producer, appearance), sized by collector demand.</div>
+      <div class="tool-card-cta">Search an artist →</div>
+    </a>
+
+  </div>
+</div>
+
+<div class="ratio-divider" id="ratio-section">
+  <div class="ratio-divider-inner">
+    <div class="ratio-divider-title">Want / Have Ratio Explorer</div>
+    <div class="ratio-divider-sub">Pick a country and genre to find its most coveted releases</div>
+  </div>
+</div>
+
+<main class="ratio-main">
 
   <div class="setup-card">
     <h2>Search</h2>
@@ -630,7 +912,7 @@ async function startFetch() {
   const topN     = parseInt(document.getElementById('top-n').value)     || 100;
 
   const titleParts = [country, genre, style].filter(Boolean);
-  document.getElementById('header-title').textContent = titleParts.join(' · ') + ' — Discogs';
+  document.title = titleParts.join(' · ') + ' — Discogs Explorer';
   document.getElementById('fetch-btn').disabled = true;
   document.getElementById('progress').style.display = 'block';
   document.getElementById('results-header').style.display = 'none';
@@ -807,11 +1089,13 @@ document.getElementById('country-input').addEventListener('keydown', e => {
 });
 
 document.getElementById('header-artist-input').addEventListener('keydown', e => {
-  if (e.key === 'Enter') {
-    const val = e.target.value.trim();
-    if (val) window.open(`/artist.html?artist=${encodeURIComponent(val)}`, '_blank');
-  }
+  if (e.key === 'Enter') goToArtist();
 });
+
+function goToArtist() {
+  const val = document.getElementById('header-artist-input').value.trim();
+  if (val) window.open(`/artist.html?artist=${encodeURIComponent(val)}`, '_blank');
+}
 </script>
 </body>
 </html>
